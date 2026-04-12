@@ -1,0 +1,71 @@
+<Window x:Class="SmartWindowTool.Views.FloatingMenuWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="Smart Menu" Height="Auto" Width="160"
+        MaxHeight="900"
+        SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False"
+        Deactivated="Window_Deactivated">
+    <Border Background="{DynamicResource ApplicationBackgroundBrush}"
+            CornerRadius="8"
+            BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            Padding="4">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="15" ShadowDepth="5" Opacity="0.3"/>
+        </Border.Effect>
+        <StackPanel>
+            <TextBlock Text="Smart Window Tool" FontWeight="Bold" Margin="5,0,0,5" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            
+            <ui:Button Content="扩大窗口大小" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="EnlargeWindow_Click" />
+            <ui:Button Content="缩小窗口大小" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ShrinkWindow_Click" />
+            
+            <ui:Button x:Name="CustomSizeButton" Content="自定义窗口尺寸 ⏵" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" MouseEnter="CustomSizeButton_MouseEnter" MouseLeave="CustomSizeButton_MouseLeave" />
+            <Popup x:Name="CustomSizePopup" PlacementTarget="{Binding ElementName=CustomSizeButton}" Placement="Right" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" MouseLeave="CustomSizePopup_MouseLeave">
+                <Border Background="{DynamicResource ApplicationBackgroundBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="4">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="15" ShadowDepth="5" Opacity="0.3"/>
+                    </Border.Effect>
+                    <ScrollViewer MaxHeight="250" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Settings.CustomWindowSizes}" Background="Transparent" BorderThickness="0" Width="160">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ui:Button Content="{Binding Title}" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="CustomSize_Click" CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </Popup>
+            
+            <Separator Margin="0,2"/>
+            <ui:Button x:Name="PinButton" Content="置顶窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="PinWindow_Click" />
+            <ui:Button Content="置底窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="BottomWindow_Click" />
+            <ui:Button Content="居中显示" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="CenterWindow_Click" />
+            <ui:Button Content="智能贴靠边缘" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="SnapToEdge_Click" />
+            <ui:Button x:Name="NextMonitorButton" Content="移至下一显示器" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="NextMonitor_Click" />
+            
+            <Separator Margin="0,2"/>
+            <ui:Button x:Name="BorderlessButton" Content="移除边框" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="Borderless_Click" />
+            <ui:Button Content="鼠标穿透 (慎用)" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ClickThrough_Click" ToolTip="开启后无法用鼠标点击该窗口，除非在主界面取消隐藏或重启软件" />
+            <ui:Button x:Name="RollUpButton" Content="卷起窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="RollUp_Click" />
+            <ui:Button Content="冻结为悬浮截图" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="FreezeWindow_Click" ToolTip="截取当前窗口并置顶显示，按 ESC 或右键关闭" />
+            
+            <Separator Margin="0,2"/>
+            <TextBlock Text="透明度" Margin="5,0,0,0" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Slider Minimum="20" Maximum="100" Value="100" ValueChanged="TransparencySlider_ValueChanged" Margin="5,0,5,2" />
+            
+            <Separator Margin="0,2"/>
+            <ui:Button Content="查看窗口信息" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="InfoWindow_Click" />
+            <ui:Button Content="打开所在目录" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="OpenFolder_Click" />
+            
+            <Separator Margin="0,2"/>
+            <ui:Button Content="隐藏窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="HideWindow_Click" />
+            <ui:Button Content="最小化到托盘" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="MinimizeToTray_Click" />
+            <Separator Margin="0,2"/>
+            <ui:Button Content="关闭菜单" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="CloseMenu_Click" Appearance="Danger" />
+        </StackPanel>
+    </Border>
+</Window>
