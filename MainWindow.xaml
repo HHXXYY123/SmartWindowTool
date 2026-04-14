@@ -22,9 +22,11 @@
                 <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,20" MaxWidth="550">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
-                            <CheckBox Content="Ctrl" IsChecked="{Binding Settings.RequireCtrl}" Margin="0,0,20,0"/>
-                            <CheckBox Content="Shift" IsChecked="{Binding Settings.RequireShift}" Margin="0,0,20,0"/>
-                            <CheckBox Content="Alt" IsChecked="{Binding Settings.RequireAlt}" Margin="0,0,20,0"/>
+                            <!-- Dummy element to prevent CheckBox from grabbing focus and rendering weirdly -->
+                            <Button Width="0" Height="0" Opacity="0" IsTabStop="True" />
+                            <CheckBox Content="Ctrl" IsChecked="{Binding Settings.RequireCtrl}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}"/>
+                            <CheckBox Content="Shift" IsChecked="{Binding Settings.RequireShift}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}"/>
+                            <CheckBox Content="Alt" IsChecked="{Binding Settings.RequireAlt}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}"/>
                             <TextBlock Text="+" VerticalAlignment="Center" Margin="0,0,20,0" FontSize="18"/>
                             <ComboBox SelectedValue="{Binding Settings.TriggerButton}" SelectedValuePath="Content" Width="120">
                                 <ComboBoxItem Content="Right" />
@@ -65,7 +67,7 @@
                             <ui:TextBox Grid.Column="2" x:Name="NewSizeHeight" PlaceholderText="高" Margin="0,0,10,0" />
                             <ui:Button Grid.Column="3" Content="添加尺寸" Appearance="Primary" Click="AddSize_Click" />
                         </Grid>
-                        <ListBox ItemsSource="{Binding Settings.CustomWindowSizes}" MaxHeight="200" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
+                        <ListBox ItemsSource="{Binding Settings.CustomWindowSizes}" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,2">
@@ -93,14 +95,7 @@
                             <ui:TextBox Grid.Column="0" x:Name="BlacklistInput" PlaceholderText="输入进程名，如 LeagueOfLegends.exe" Margin="0,0,10,0"/>
                             <ui:Button Grid.Column="1" Content="添加黑名单" Appearance="Primary" Click="AddBlacklist_Click"/>
                         </Grid>
-                        <ItemsControl ItemsSource="{Binding Settings.BlacklistProcesses}" MaxHeight="150" ScrollViewer.VerticalScrollBarVisibility="Auto">
-                            <ItemsControl.Template>
-                                <ControlTemplate>
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                        <ItemsPresenter/>
-                                    </ScrollViewer>
-                                </ControlTemplate>
-                            </ItemsControl.Template>
+                        <ItemsControl ItemsSource="{Binding Settings.BlacklistProcesses}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,4">
@@ -120,7 +115,7 @@
                 <StackPanel Visibility="{Binding HiddenWindowsVisibility}">
                     <TextBlock Text="已隐藏/最小化到托盘的窗口" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" HorizontalAlignment="Center" />
                     <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" MaxWidth="550">
-                        <ListBox ItemsSource="{Binding HiddenWindows}" MaxHeight="250" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
+                        <ListBox ItemsSource="{Binding HiddenWindows}" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,5">

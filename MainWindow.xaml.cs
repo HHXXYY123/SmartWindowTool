@@ -339,6 +339,10 @@ namespace SmartWindowTool
                     // We no longer rely on Deactivated event, so we can simplify the show logic
                     _floatingMenu.Hide();
                     
+                    // Pre-position to mouse coordinates to prevent flashing at old location
+                    _floatingMenu.Left = logicalMouseX;
+                    _floatingMenu.Top = logicalMouseY;
+                    
                     // Force the menu to actually measure and arrange its size before we display it
                     // Show temporarily transparently or out of bounds to force layout calculation
                     _floatingMenu.Opacity = 0;
