@@ -212,6 +212,7 @@ namespace SmartWindowTool.Views
 
         private void CustomSizeButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            MonitorPopup.IsOpen = false;
             CustomSizePopup.IsOpen = true;
         }
 
@@ -499,6 +500,7 @@ namespace SmartWindowTool.Views
 
         private void MonitorButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
+            CustomSizePopup.IsOpen = false;
             MonitorPopup.IsOpen = true;
         }
 
