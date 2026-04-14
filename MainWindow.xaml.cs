@@ -339,15 +339,14 @@ namespace SmartWindowTool
                     // We no longer rely on Deactivated event, so we can simplify the show logic
                     _floatingMenu.Hide();
                     
-                    // Pre-position to mouse coordinates to prevent flashing at old location
-                    _floatingMenu.Left = logicalMouseX;
-                    _floatingMenu.Top = logicalMouseY;
+                    // Measure the menu's desired size without showing it
+                    _floatingMenu.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    double menuWidth = _floatingMenu.DesiredSize.Width;
+                    double menuHeight = _floatingMenu.DesiredSize.Height;
                     
-                    // Force the menu to actually measure and arrange its size before we display it
-                    // Show temporarily transparently or out of bounds to force layout calculation
-                    _floatingMenu.Opacity = 0;
-                    _floatingMenu.Show();
-                    _floatingMenu.UpdateLayout();
+                    // Fallback to defaults if measure fails
+                    if (menuWidth == 0) menuWidth = 170;
+                    if (menuHeight == 0) menuHeight = 350;
                     
                     // Reposition menu if it goes out of screen bounds
                     var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(e.MouseX, e.MouseY));
@@ -361,19 +360,20 @@ namespace SmartWindowTool
                     double finalLeft = logicalMouseX;
                     double finalTop = logicalMouseY;
 
-                    if (finalLeft + _floatingMenu.ActualWidth > logicalScreenLeft + logicalScreenWidth)
+                    if (finalLeft + menuWidth > logicalScreenLeft + logicalScreenWidth)
                     {
-                        finalLeft = logicalScreenLeft + logicalScreenWidth - _floatingMenu.ActualWidth;
+                        finalLeft = logicalScreenLeft + logicalScreenWidth - menuWidth;
                     }
-                    if (finalTop + _floatingMenu.ActualHeight > logicalScreenTop + logicalScreenHeight)
+                    if (finalTop + menuHeight > logicalScreenTop + logicalScreenHeight)
                     {
-                        finalTop = logicalScreenTop + logicalScreenHeight - _floatingMenu.ActualHeight;
+                        finalTop = logicalScreenTop + logicalScreenHeight - menuHeight;
                     }
                     
-                    // Set position AFTER opacity is back to 1 to prevent flashing in wrong place
-                    _floatingMenu.Opacity = 1;
+                    // Position exactly before showing to prevent ANY flicker
                     _floatingMenu.Left = finalLeft;
                     _floatingMenu.Top = finalTop;
+                    _floatingMenu.Opacity = 1;
+                    _floatingMenu.Show();
                     
                     // Enforce Topmost and foreground to prevent the menu from hiding behind other windows
                     _floatingMenu.Topmost = true;
