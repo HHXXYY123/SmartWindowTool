@@ -49,44 +49,39 @@ namespace SmartWindowTool
                 {
                     ShowMainWindow();
                 }
-            };
-            
-            UpdateTrayMenu();
-            
-            // Rebuild menu when HiddenWindows change
-            _viewModel.HiddenWindows.CollectionChanged += (s, e) =>
-            {
-                Application.Current.Dispatcher.Invoke(() => UpdateTrayMenu());
+                else if (e.Button == System.Windows.Forms.MouseButtons.Right)
+                {
+                    Application.Current.Dispatcher.Invoke(() => ShowWpfTrayMenu());
+                }
             };
         }
 
-        private void UpdateTrayMenu()
+        private void ShowWpfTrayMenu()
         {
-            var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+            var contextMenu = new System.Windows.Controls.ContextMenu();
             
-            // Apply system theme to the context menu
-            contextMenu.Renderer = new System.Windows.Forms.ToolStripProfessionalRenderer(new DarkColorTable());
+            // Set dark theme explicitly for ContextMenu
+            contextMenu.Foreground = System.Windows.Media.Brushes.White;
+            contextMenu.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(43, 43, 43));
+            contextMenu.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64));
+            contextMenu.BorderThickness = new Thickness(1);
             
-            var showItem = new System.Windows.Forms.ToolStripMenuItem("显示主界面");
-            showItem.ForeColor = System.Drawing.Color.White;
+            var showItem = new System.Windows.Controls.MenuItem { Header = "显示主界面" };
             showItem.Click += (s, e) => ShowMainWindow();
             contextMenu.Items.Add(showItem);
             
-            var exitItem = new System.Windows.Forms.ToolStripMenuItem("退出程序");
-            exitItem.ForeColor = System.Drawing.Color.White;
+            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出程序" };
             exitItem.Click += (s, e) => ExitApp_Click(null, null);
             
             if (_viewModel.HiddenWindows.Count > 0)
             {
-                contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-                var restoreTitle = new System.Windows.Forms.ToolStripMenuItem("--- 恢复隐藏的窗口 ---") { Enabled = false };
-                restoreTitle.ForeColor = System.Drawing.Color.Gray;
+                contextMenu.Items.Add(new System.Windows.Controls.Separator());
+                var restoreTitle = new System.Windows.Controls.MenuItem { Header = "--- 恢复隐藏的窗口 ---", IsEnabled = false };
                 contextMenu.Items.Add(restoreTitle);
                 
                 foreach (var hiddenWin in _viewModel.HiddenWindows)
                 {
-                    var item = new System.Windows.Forms.ToolStripMenuItem(hiddenWin.DisplayText);
-                    item.ForeColor = System.Drawing.Color.White;
+                    var item = new System.Windows.Controls.MenuItem { Header = hiddenWin.DisplayText };
                     item.Click += (s, e) =>
                     {
                         RestoreWindow(hiddenWin);
@@ -95,28 +90,34 @@ namespace SmartWindowTool
                 }
             }
 
-            contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            contextMenu.Items.Add(new System.Windows.Controls.Separator());
             contextMenu.Items.Add(exitItem);
 
-            _notifyIcon.ContextMenuStrip = contextMenu;
-        }
-
-        // Helper class for dark theme ContextMenuStrip
-        private class DarkColorTable : System.Windows.Forms.ProfessionalColorTable
-        {
-            public override System.Drawing.Color ToolStripDropDownBackground => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color ImageMarginGradientBegin => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color ImageMarginGradientMiddle => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color ImageMarginGradientEnd => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color MenuBorder => System.Drawing.Color.FromArgb(64, 64, 64);
-            public override System.Drawing.Color MenuItemBorder => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color MenuItemSelected => System.Drawing.Color.FromArgb(64, 64, 64);
-            public override System.Drawing.Color MenuStripGradientBegin => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color MenuStripGradientEnd => System.Drawing.Color.FromArgb(43, 43, 43);
-            public override System.Drawing.Color MenuItemSelectedGradientBegin => System.Drawing.Color.FromArgb(64, 64, 64);
-            public override System.Drawing.Color MenuItemSelectedGradientEnd => System.Drawing.Color.FromArgb(64, 64, 64);
-            public override System.Drawing.Color MenuItemPressedGradientBegin => System.Drawing.Color.FromArgb(64, 64, 64);
-            public override System.Drawing.Color MenuItemPressedGradientEnd => System.Drawing.Color.FromArgb(64, 64, 64);
+            // Create a dummy hidden window to host the ContextMenu so it styles correctly and closes on click-away
+            var hiddenWindow = new Window
+            {
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = System.Windows.Media.Brushes.Transparent,
+                ShowInTaskbar = false,
+                Width = 0,
+                Height = 0,
+                Topmost = true
+            };
+            
+            hiddenWindow.ContextMenu = contextMenu;
+            contextMenu.Closed += (s, e) => hiddenWindow.Close();
+            
+            hiddenWindow.Show();
+            
+            // Move mouse to right bottomish to show menu near tray
+            var cursor = System.Windows.Forms.Cursor.Position;
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(hiddenWindow);
+            hiddenWindow.Left = cursor.X / dpi.DpiScaleX;
+            hiddenWindow.Top = cursor.Y / dpi.DpiScaleY;
+            
+            contextMenu.IsOpen = true;
+            Win32Api.SetForegroundWindow(new System.Windows.Interop.WindowInteropHelper(hiddenWindow).Handle);
         }
 
         private void RestoreWindow(HiddenWindowInfo info)
