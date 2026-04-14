@@ -16,6 +16,9 @@
     <!-- 对于 Framework-Dependent，其实是不支持自带压缩的，但为了极致减小体积，我们可以排除不必要的调试符号 -->
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
+
+    <!-- 提升权限清单文件 -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
