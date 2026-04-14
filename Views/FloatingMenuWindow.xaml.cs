@@ -320,14 +320,13 @@ namespace SmartWindowTool.Views
                 }
                 catch { }
 
-                string info = $"窗口句柄 (Handle): {TargetWindowHwnd}\n" +
-                              $"窗口标题 (Title): {titleBuilder}\n" +
-                              $"窗口类名 (Class): {classBuilder}\n" +
-                              $"进程 ID (PID): {processId}\n" +
-                              $"进程名称 (Process Name): {processName}\n" +
-                              $"进程路径 (Process Path): {processPath}";
+                string handleStr = TargetWindowHwnd.ToString();
+                string titleStr = titleBuilder.ToString();
+                string classStr = classBuilder.ToString();
+                string pidStr = processId.ToString();
 
-                MessageBox.Show(info, "窗口信息", MessageBoxButton.OK, MessageBoxImage.Information);
+                var infoWindow = new InfoWindow(handleStr, titleStr, classStr, pidStr, processName, processPath);
+                infoWindow.Show();
             }
             this.Hide();
         }
