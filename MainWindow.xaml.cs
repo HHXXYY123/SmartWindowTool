@@ -54,17 +54,24 @@ namespace SmartWindowTool
                     Application.Current.Dispatcher.Invoke(() => ShowWpfTrayMenu());
                 }
             };
+            
+            // Rebuild menu when HiddenWindows change
+            _viewModel.HiddenWindows.CollectionChanged += (s, e) =>
+            {
+                // Nothing to do if we dynamically build the WPF menu each time
+            };
         }
 
         private void ShowWpfTrayMenu()
         {
             var contextMenu = new System.Windows.Controls.ContextMenu();
             
-            // Set dark theme explicitly for ContextMenu
-            contextMenu.Foreground = System.Windows.Media.Brushes.White;
-            contextMenu.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(43, 43, 43));
-            contextMenu.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(64, 64, 64));
-            contextMenu.BorderThickness = new Thickness(1);
+            // Apply application resources to the ContextMenu so it inherits Wpf.Ui styles
+            if (Application.Current.Resources.MergedDictionaries.Count > 0)
+            {
+                contextMenu.Resources.MergedDictionaries.Add(Application.Current.Resources.MergedDictionaries[0]);
+            }
+            contextMenu.SetResourceReference(FrameworkElement.StyleProperty, typeof(System.Windows.Controls.ContextMenu));
             
             var showItem = new System.Windows.Controls.MenuItem { Header = "显示主界面" };
             showItem.Click += (s, e) => ShowMainWindow();
@@ -82,10 +89,7 @@ namespace SmartWindowTool
                 foreach (var hiddenWin in _viewModel.HiddenWindows)
                 {
                     var item = new System.Windows.Controls.MenuItem { Header = hiddenWin.DisplayText };
-                    item.Click += (s, e) =>
-                    {
-                        RestoreWindow(hiddenWin);
-                    };
+                    item.Click += (s, e) => RestoreWindow(hiddenWin);
                     contextMenu.Items.Add(item);
                 }
             }

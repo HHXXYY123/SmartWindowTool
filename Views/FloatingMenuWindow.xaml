@@ -23,7 +23,7 @@
             <ui:Button Content="缩小窗口大小" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ShrinkWindow_Click" />
             
             <ui:Button x:Name="CustomSizeButton" Content="自定义窗口尺寸 ⏵" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" MouseEnter="CustomSizeButton_MouseEnter" MouseLeave="CustomSizeButton_MouseLeave" />
-            <Popup x:Name="CustomSizePopup" PlacementTarget="{Binding ElementName=CustomSizeButton}" Placement="Right" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" MouseLeave="CustomSizePopup_MouseLeave">
+            <Popup x:Name="CustomSizePopup" PlacementTarget="{Binding ElementName=CustomSizeButton}" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade" MouseLeave="CustomSizePopup_MouseLeave">
                 <Border Background="{DynamicResource ApplicationBackgroundBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="4">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="15" ShadowDepth="5" Opacity="0.3"/>
@@ -47,7 +47,7 @@
             <ui:Button Content="智能贴靠边缘" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="SnapToEdge_Click" />
             
             <ui:Button x:Name="MonitorButton" Content="移动到显示器 ⏵" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" MouseEnter="MonitorButton_MouseEnter" MouseLeave="MonitorButton_MouseLeave" />
-            <Popup x:Name="MonitorPopup" PlacementTarget="{Binding ElementName=MonitorButton}" Placement="Right" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" MouseLeave="MonitorPopup_MouseLeave">
+            <Popup x:Name="MonitorPopup" PlacementTarget="{Binding ElementName=MonitorButton}" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade" MouseLeave="MonitorPopup_MouseLeave">
                 <Border Background="{DynamicResource ApplicationBackgroundBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="4">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="15" ShadowDepth="5" Opacity="0.3"/>
