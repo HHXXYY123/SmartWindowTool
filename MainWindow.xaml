@@ -22,13 +22,11 @@
                 <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,20" MaxWidth="550">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
-                            <!-- Dummy element to prevent CheckBox from grabbing focus and rendering weirdly -->
-                            <Button Width="0" Height="0" Opacity="0" IsTabStop="True" />
-                            <CheckBox Content="Ctrl" IsChecked="{Binding Settings.RequireCtrl}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}"/>
-                            <CheckBox Content="Shift" IsChecked="{Binding Settings.RequireShift}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}"/>
-                            <CheckBox Content="Alt" IsChecked="{Binding Settings.RequireAlt}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}"/>
+                            <CheckBox Content="Ctrl" IsChecked="{Binding Settings.RequireCtrl}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}" IsTabStop="False" />
+                            <CheckBox Content="Shift" IsChecked="{Binding Settings.RequireShift}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}" IsTabStop="False" />
+                            <CheckBox Content="Alt" IsChecked="{Binding Settings.RequireAlt}" Margin="0,0,20,0" FocusVisualStyle="{x:Null}" IsTabStop="False" />
                             <TextBlock Text="+" VerticalAlignment="Center" Margin="0,0,20,0" FontSize="18"/>
-                            <ComboBox SelectedValue="{Binding Settings.TriggerButton}" SelectedValuePath="Content" Width="120">
+                            <ComboBox SelectedValue="{Binding Settings.TriggerButton}" SelectedValuePath="Content" Width="120" FocusVisualStyle="{x:Null}" IsTabStop="False">
                                 <ComboBoxItem Content="Right" />
                                 <ComboBoxItem Content="Middle" />
                                 <ComboBoxItem Content="Left" />
