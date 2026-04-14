@@ -1,5 +1,7 @@
 using System.Configuration;
 using System.Data;
+using System.Diagnostics;
+using System.Security.Principal;
 using System.Windows;
 using SmartWindowTool.Models;
 
@@ -14,8 +16,31 @@ public partial class App : Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
-        // 加载设置以判断是否静默启动
+        // 加载设置以判断是否静默启动和是否需要管理员权限
         var settings = AppSettings.Load();
+
+        bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+
+        if (settings.RunAsAdmin && !isAdmin)
+        {
+            var processInfo = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName)
+            {
+                UseShellExecute = true,
+                Verb = "runas"
+            };
+            try
+            {
+                Process.Start(processInfo);
+                Application.Current.Shutdown();
+                return;
+            }
+            catch
+            {
+                // User cancelled UAC or failed
+                settings.RunAsAdmin = false;
+                settings.Save();
+            }
+        }
 
         _mainWindow = new MainWindow();
         

@@ -45,11 +45,26 @@
             <ui:Button Content="置底窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="BottomWindow_Click" />
             <ui:Button Content="居中显示" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="CenterWindow_Click" />
             <ui:Button Content="智能贴靠边缘" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="SnapToEdge_Click" />
-            <ui:Button x:Name="NextMonitorButton" Content="移至下一显示器" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="NextMonitor_Click" />
+            
+            <ui:Button x:Name="MonitorButton" Content="移动到显示器 ⏵" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" MouseEnter="MonitorButton_MouseEnter" MouseLeave="MonitorButton_MouseLeave" />
+            <Popup x:Name="MonitorPopup" PlacementTarget="{Binding ElementName=MonitorButton}" Placement="Right" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" MouseLeave="MonitorPopup_MouseLeave">
+                <Border Background="{DynamicResource ApplicationBackgroundBrush}" BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="4">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="15" ShadowDepth="5" Opacity="0.3"/>
+                    </Border.Effect>
+                    <ItemsControl x:Name="MonitorList" Background="Transparent" BorderThickness="0" Width="160">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ui:Button Content="{Binding Name}" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="MoveToMonitor_Click" CommandParameter="{Binding Index}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </Popup>
             
             <Separator Margin="0,2"/>
             <ui:Button x:Name="BorderlessButton" Content="移除边框" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="Borderless_Click" />
-            <ui:Button Content="鼠标穿透 (慎用)" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ClickThrough_Click" ToolTip="开启后无法用鼠标点击该窗口，除非在主界面取消隐藏或重启软件" />
+            <ui:Button Content="鼠标穿透" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ClickThrough_Click" ToolTip="开启后无法用鼠标点击该窗口，除非在主界面取消隐藏或重启软件" />
             <ui:Button x:Name="RollUpButton" Content="卷起窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="RollUp_Click" />
             <ui:Button Content="冻结为悬浮截图" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="FreezeWindow_Click" ToolTip="截取当前窗口并置顶显示，按 ESC 或右键关闭" />
             
@@ -62,6 +77,7 @@
             <ui:Button Content="打开所在目录" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="OpenFolder_Click" />
             
             <Separator Margin="0,2"/>
+            <ui:Button Content="显示主界面" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ShowMainWindow_Click" />
             <ui:Button Content="隐藏窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="HideWindow_Click" />
             <ui:Button Content="最小化到托盘" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="MinimizeToTray_Click" />
             <Separator Margin="0,2"/>

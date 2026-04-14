@@ -16,6 +16,7 @@ namespace SmartWindowTool.Models
         private string _triggerButton = "Right"; // ComboBox uses string content
         private bool _silentStart = false;
         private bool _autoStart = false;
+        private bool _runAsAdmin = false;
         
         public ObservableCollection<WindowSizeItem> CustomWindowSizes { get; set; } = new ObservableCollection<WindowSizeItem>();
         public ObservableCollection<string> BlacklistProcesses { get; set; } = new ObservableCollection<string>();
@@ -59,6 +60,12 @@ namespace SmartWindowTool.Models
                 UpdateAutoStartRegistry(value);
                 OnPropertyChanged(); 
             }
+        }
+
+        public bool RunAsAdmin
+        {
+            get => _runAsAdmin;
+            set { _runAsAdmin = value; OnPropertyChanged(); }
         }
 
         private void UpdateAutoStartRegistry(bool enable)

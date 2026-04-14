@@ -17,6 +17,12 @@ namespace SmartWindowTool.Views
         private Dictionary<IntPtr, int> _originalHeights = new Dictionary<IntPtr, int>();
         private Dictionary<IntPtr, uint> _originalStyles = new Dictionary<IntPtr, uint>();
 
+        public class ScreenItem
+        {
+            public string Name { get; set; }
+            public int Index { get; set; }
+        }
+
         public FloatingMenuWindow(ViewModels.MainViewModel viewModel)
         {
             InitializeComponent();
@@ -28,6 +34,7 @@ namespace SmartWindowTool.Views
                 if (!this.IsVisible)
                 {
                     CustomSizePopup.IsOpen = false;
+                    MonitorPopup.IsOpen = false;
                 }
             };
             
@@ -41,14 +48,21 @@ namespace SmartWindowTool.Views
             };
         }
 
-        public bool IsCustomSizePopupOpen()
+        public bool IsAnyPopupOpen()
         {
-            return CustomSizePopup.IsOpen;
+            return CustomSizePopup.IsOpen || MonitorPopup.IsOpen;
         }
 
         public bool IsMouseInsidePopup(int x, int y)
         {
-            if (CustomSizePopup.Child is FrameworkElement child)
+            if (CheckPopup(CustomSizePopup, x, y)) return true;
+            if (CheckPopup(MonitorPopup, x, y)) return true;
+            return false;
+        }
+
+        private bool CheckPopup(System.Windows.Controls.Primitives.Popup popup, int x, int y)
+        {
+            if (popup.IsOpen && popup.Child is FrameworkElement child)
             {
                 try
                 {
@@ -132,6 +146,16 @@ namespace SmartWindowTool.Views
                 
                 bool isRolledUp = _originalHeights.ContainsKey(TargetWindowHwnd);
                 RollUpButton.Content = isRolledUp ? "展开窗口" : "卷起窗口";
+                
+                // Populate Monitors
+                var screens = System.Windows.Forms.Screen.AllScreens;
+                var screenItems = new List<ScreenItem>();
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    string name = screens[i].Primary ? $"显示器 {i + 1} (主)" : $"显示器 {i + 1}";
+                    screenItems.Add(new ScreenItem { Name = name, Index = i });
+                }
+                MonitorList.ItemsSource = screenItems;
                 
                 Console.WriteLine($"UpdateState: Target={TargetWindowHwnd}, IsTopmost={isTopmost}, ExStyle={exStyle:X}, HasBorder={hasBorder}");
             }
@@ -473,38 +497,65 @@ namespace SmartWindowTool.Views
             this.Hide();
         }
 
-        private void NextMonitor_Click(object sender, RoutedEventArgs e)
+        private void MonitorButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (TargetWindowHwnd != IntPtr.Zero)
+            MonitorPopup.IsOpen = true;
+        }
+
+        private void MonitorButton_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            System.Threading.Tasks.Task.Delay(50).ContinueWith(_ =>
             {
-                var screens = System.Windows.Forms.Screen.AllScreens;
-                if (screens.Length > 1)
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    var currentScreen = System.Windows.Forms.Screen.FromHandle(TargetWindowHwnd);
-                    int currentIndex = Array.IndexOf(screens, currentScreen);
-                    int nextIndex = (currentIndex + 1) % screens.Length;
-                    var nextScreen = screens[nextIndex];
-
-                    if (Win32Api.GetWindowRect(TargetWindowHwnd, out Win32Api.RECT rect))
+                    if (!MonitorButton.IsMouseOver && !MonitorPopup.IsMouseOver)
                     {
-                        int width = rect.Right - rect.Left;
-                        int height = rect.Bottom - rect.Top;
+                        MonitorPopup.IsOpen = false;
+                    }
+                });
+            });
+        }
+
+        private void MonitorPopup_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!MonitorButton.IsMouseOver && !MonitorPopup.IsMouseOver)
+            {
+                MonitorPopup.IsOpen = false;
+            }
+        }
+
+        private void MoveToMonitor_Click(object sender, RoutedEventArgs e)
+        {
+            MonitorPopup.IsOpen = false;
+            if (sender is System.Windows.Controls.Button element && element.CommandParameter is int screenIndex)
+            {
+                if (TargetWindowHwnd != IntPtr.Zero)
+                {
+                    var screens = System.Windows.Forms.Screen.AllScreens;
+                    if (screenIndex >= 0 && screenIndex < screens.Length)
+                    {
+                        var nextScreen = screens[screenIndex];
+                        var currentScreen = System.Windows.Forms.Screen.FromHandle(TargetWindowHwnd);
                         
-                        // Calculate relative position
-                        double relX = (double)(rect.Left - currentScreen.WorkingArea.Left) / currentScreen.WorkingArea.Width;
-                        double relY = (double)(rect.Top - currentScreen.WorkingArea.Top) / currentScreen.WorkingArea.Height;
+                        if (Win32Api.GetWindowRect(TargetWindowHwnd, out Win32Api.RECT rect))
+                        {
+                            int width = rect.Right - rect.Left;
+                            int height = rect.Bottom - rect.Top;
+                            
+                            double relX = (double)(rect.Left - currentScreen.WorkingArea.Left) / currentScreen.WorkingArea.Width;
+                            double relY = (double)(rect.Top - currentScreen.WorkingArea.Top) / currentScreen.WorkingArea.Height;
 
-                        int newX = nextScreen.WorkingArea.Left + (int)(relX * nextScreen.WorkingArea.Width);
-                        int newY = nextScreen.WorkingArea.Top + (int)(relY * nextScreen.WorkingArea.Height);
+                            int newX = nextScreen.WorkingArea.Left + (int)(relX * nextScreen.WorkingArea.Width);
+                            int newY = nextScreen.WorkingArea.Top + (int)(relY * nextScreen.WorkingArea.Height);
 
-                        // Ensure it fits inside the new screen
-                        if (newX + width > nextScreen.WorkingArea.Right) newX = nextScreen.WorkingArea.Right - width;
-                        if (newY + height > nextScreen.WorkingArea.Bottom) newY = nextScreen.WorkingArea.Bottom - height;
-                        if (newX < nextScreen.WorkingArea.Left) newX = nextScreen.WorkingArea.Left;
-                        if (newY < nextScreen.WorkingArea.Top) newY = nextScreen.WorkingArea.Top;
+                            if (newX + width > nextScreen.WorkingArea.Right) newX = nextScreen.WorkingArea.Right - width;
+                            if (newY + height > nextScreen.WorkingArea.Bottom) newY = nextScreen.WorkingArea.Bottom - height;
+                            if (newX < nextScreen.WorkingArea.Left) newX = nextScreen.WorkingArea.Left;
+                            if (newY < nextScreen.WorkingArea.Top) newY = nextScreen.WorkingArea.Top;
 
-                        Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, newX, newY, width, height, 
-                            Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
+                            Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, newX, newY, width, height, 
+                                Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
+                        }
                     }
                 }
             }
@@ -559,6 +610,21 @@ namespace SmartWindowTool.Views
                 _viewModel.AddHiddenWindow(TargetWindowHwnd);
             }
             this.Hide();
+        }
+
+        private void ShowMainWindow_Click(object sender, RoutedEventArgs e)
+        {
+            this.Hide();
+            foreach (Window window in Application.Current.Windows)
+            {
+                if (window is MainWindow mainWindow)
+                {
+                    mainWindow.Show();
+                    mainWindow.WindowState = WindowState.Normal;
+                    mainWindow.Activate();
+                    break;
+                }
+            }
         }
 
         private void MinimizeToTray_Click(object sender, RoutedEventArgs e)

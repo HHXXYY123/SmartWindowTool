@@ -33,9 +33,12 @@
                             </ComboBox>
                         </StackPanel>
                         
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                             <CheckBox Content="开机自启动" IsChecked="{Binding Settings.AutoStart}" Margin="0,0,20,0"/>
                             <CheckBox Content="静默启动 (仅托盘运行)" IsChecked="{Binding Settings.SilentStart}" Margin="0,0,20,0"/>
+                            <CheckBox Content="以管理员权限运行 (支持游戏)" IsChecked="{Binding Settings.RunAsAdmin}" Click="RunAsAdmin_Click" Margin="0,0,20,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <ui:Button Content="完全退出程序" Appearance="Danger" Click="ExitApp_Click" />
                         </StackPanel>
                     </StackPanel>

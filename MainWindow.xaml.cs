@@ -155,7 +155,7 @@ namespace SmartWindowTool
                             if (e.X < rect.Left - 5 || e.X > rect.Right + 5 || e.Y < rect.Top - 5 || e.Y > rect.Bottom + 5)
                             {
                                 // Also check if popup is open and mouse is inside popup
-                                if (_floatingMenu.IsCustomSizePopupOpen() && _floatingMenu.IsMouseInsidePopup(e.X, e.Y))
+                                if (_floatingMenu.IsAnyPopupOpen() && _floatingMenu.IsMouseInsidePopup(e.X, e.Y))
                                 {
                                     return;
                                 }
@@ -436,6 +436,49 @@ namespace SmartWindowTool
                     Win32Api.SetForegroundWindow(info.Hwnd);
                 }
                 _viewModel.RemoveHiddenWindow(info);
+            }
+        }
+
+        private void RunAsAdmin_Click(object sender, RoutedEventArgs e)
+        {
+            bool isAdmin = new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            if (_viewModel.Settings.RunAsAdmin && !isAdmin)
+            {
+                var processInfo = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName)
+                {
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                try
+                {
+                    Process.Start(processInfo);
+                    _isRealExit = true;
+                    if (_notifyIcon != null)
+                    {
+                        _notifyIcon.Visible = false;
+                        _notifyIcon.Dispose();
+                    }
+                    Application.Current.Shutdown();
+                }
+                catch
+                {
+                    _viewModel.Settings.RunAsAdmin = false;
+                }
+            }
+            else if (!_viewModel.Settings.RunAsAdmin && isAdmin)
+            {
+                var processInfo = new ProcessStartInfo("explorer.exe", Process.GetCurrentProcess().MainModule.FileName)
+                {
+                    UseShellExecute = true
+                };
+                Process.Start(processInfo);
+                _isRealExit = true;
+                if (_notifyIcon != null)
+                {
+                    _notifyIcon.Visible = false;
+                    _notifyIcon.Dispose();
+                }
+                Application.Current.Shutdown();
             }
         }
     }
