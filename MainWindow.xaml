@@ -19,13 +19,13 @@
                 <TextBlock Text="Smart Window Tool 已启动" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
                 <TextBlock Text="使用快捷键呼出智能菜单：" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,10"/>
                 
-                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,20">
+                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,20" MaxWidth="550">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
-                            <CheckBox Content="Ctrl" IsChecked="{Binding Settings.RequireCtrl}" Margin="0,0,10,0"/>
-                            <CheckBox Content="Shift" IsChecked="{Binding Settings.RequireShift}" Margin="0,0,10,0"/>
-                            <CheckBox Content="Alt" IsChecked="{Binding Settings.RequireAlt}" Margin="0,0,10,0"/>
-                            <TextBlock Text="+" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <CheckBox Content="Ctrl" IsChecked="{Binding Settings.RequireCtrl}" Margin="0,0,20,0"/>
+                            <CheckBox Content="Shift" IsChecked="{Binding Settings.RequireShift}" Margin="0,0,20,0"/>
+                            <CheckBox Content="Alt" IsChecked="{Binding Settings.RequireAlt}" Margin="0,0,20,0"/>
+                            <TextBlock Text="+" VerticalAlignment="Center" Margin="0,0,20,0" FontSize="18"/>
                             <ComboBox SelectedValue="{Binding Settings.TriggerButton}" SelectedValuePath="Content" Width="120">
                                 <ComboBoxItem Content="Right" />
                                 <ComboBoxItem Content="Middle" />
@@ -33,27 +33,39 @@
                             </ComboBox>
                         </StackPanel>
                         
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                            <CheckBox Content="开机自启动" IsChecked="{Binding Settings.AutoStart}" Margin="0,0,20,0"/>
-                            <CheckBox Content="静默启动 (仅托盘运行)" IsChecked="{Binding Settings.SilentStart}" Margin="0,0,20,0"/>
-                            <CheckBox Content="以管理员权限运行 (支持游戏)" IsChecked="{Binding Settings.RunAsAdmin}" Click="RunAsAdmin_Click" Margin="0,0,20,0"/>
-                        </StackPanel>
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0" Content="开机自启动" IsChecked="{Binding Settings.AutoStart}" HorizontalAlignment="Center"/>
+                            <CheckBox Grid.Column="1" Content="静默启动 (仅托盘)" IsChecked="{Binding Settings.SilentStart}" HorizontalAlignment="Center"/>
+                            <CheckBox Grid.Column="2" Content="管理员权限 (支持游戏)" IsChecked="{Binding Settings.RunAsAdmin}" Click="RunAsAdmin_Click" HorizontalAlignment="Center"/>
+                        </Grid>
+                        
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <ui:Button Content="完全退出程序" Appearance="Danger" Click="ExitApp_Click" />
+                            <ui:Button Content="完全退出程序" Appearance="Danger" Click="ExitApp_Click" MinWidth="150" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <TextBlock Text="自定义窗口尺寸" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" HorizontalAlignment="Center" />
-                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,30" Width="500">
+                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,30" MaxWidth="550">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <ui:TextBox x:Name="NewSizeTitle" PlaceholderText="标题 (如 1920x1080)" Width="150" Margin="0,0,10,0" />
-                            <ui:TextBox x:Name="NewSizeWidth" PlaceholderText="宽" Width="80" Margin="0,0,10,0" />
-                            <ui:TextBox x:Name="NewSizeHeight" PlaceholderText="高" Width="80" Margin="0,0,10,0" />
-                            <ui:Button Content="添加尺寸" Appearance="Primary" Click="AddSize_Click" />
-                        </StackPanel>
-                        <ListBox ItemsSource="{Binding Settings.CustomWindowSizes}" MaxHeight="150" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ui:TextBox Grid.Column="0" x:Name="NewSizeTitle" PlaceholderText="标题 (如 1920x1080)" Margin="0,0,10,0" />
+                            <ui:TextBox Grid.Column="1" x:Name="NewSizeWidth" PlaceholderText="宽" Margin="0,0,10,0" />
+                            <ui:TextBox Grid.Column="2" x:Name="NewSizeHeight" PlaceholderText="高" Margin="0,0,10,0" />
+                            <ui:Button Grid.Column="3" Content="添加尺寸" Appearance="Primary" Click="AddSize_Click" />
+                        </Grid>
+                        <ListBox ItemsSource="{Binding Settings.CustomWindowSizes}" MaxHeight="200" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,2">
@@ -61,8 +73,8 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
-                                        <ui:Button Grid.Column="1" Content="删除" Appearance="Danger" Click="RemoveSize_Click" CommandParameter="{Binding}" Padding="10,2" />
+                                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="14" />
+                                        <ui:Button Grid.Column="1" Content="删除" Appearance="Danger" Click="RemoveSize_Click" CommandParameter="{Binding}" Padding="15,4" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -70,13 +82,17 @@
                     </StackPanel>
                 </Border>
                 
-                <TextBlock Text="进程黑名单过滤：" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,20">
+                <TextBlock Text="进程黑名单过滤" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" HorizontalAlignment="Center" />
+                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,30" MaxWidth="550">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <ui:TextBox x:Name="BlacklistInput" PlaceholderText="输入进程名，如 LeagueOfLegends.exe" Width="250" Margin="0,0,10,0"/>
-                            <ui:Button Content="添加黑名单" Click="AddBlacklist_Click"/>
-                        </StackPanel>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ui:TextBox Grid.Column="0" x:Name="BlacklistInput" PlaceholderText="输入进程名，如 LeagueOfLegends.exe" Margin="0,0,10,0"/>
+                            <ui:Button Grid.Column="1" Content="添加黑名单" Appearance="Primary" Click="AddBlacklist_Click"/>
+                        </Grid>
                         <ItemsControl ItemsSource="{Binding Settings.BlacklistProcesses}" MaxHeight="150" ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ItemsControl.Template>
                                 <ControlTemplate>
@@ -87,13 +103,13 @@
                             </ItemsControl.Template>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,2">
+                                    <Grid Margin="0,4">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                                        <ui:Button Grid.Column="1" Content="删除" Appearance="Danger" Padding="5,2" MinHeight="24" Click="RemoveBlacklist_Click" CommandParameter="{Binding}" />
+                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" FontSize="14" />
+                                        <ui:Button Grid.Column="1" Content="删除" Appearance="Danger" Padding="15,4" Click="RemoveBlacklist_Click" CommandParameter="{Binding}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -102,24 +118,26 @@
                 </Border>
                 
                 <StackPanel Visibility="{Binding HiddenWindowsVisibility}">
-                    <TextBlock Text="已隐藏/最小化到托盘的窗口：" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" HorizontalAlignment="Center" />
-                    <ListBox ItemsSource="{Binding HiddenWindows}" MaxHeight="200" Width="500" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayText}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayText}" />
-                                        <TextBlock Text="{Binding HiddenAt, StringFormat='隐藏时间: {0:HH:mm:ss}'}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    </StackPanel>
-                                    <ui:Button Grid.Column="1" Content="还原窗口" Appearance="Primary" Click="RestoreWindow_Click" CommandParameter="{Binding}" VerticalAlignment="Center" Margin="10,0,0,0" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <TextBlock Text="已隐藏/最小化到托盘的窗口" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" HorizontalAlignment="Center" />
+                    <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" MaxWidth="550">
+                        <ListBox ItemsSource="{Binding HiddenWindows}" MaxHeight="250" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayText}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayText}" />
+                                            <TextBlock Text="{Binding HiddenAt, StringFormat='隐藏时间: {0:HH:mm:ss}'}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                        <ui:Button Grid.Column="1" Content="还原窗口" Appearance="Primary" Click="RestoreWindow_Click" CommandParameter="{Binding}" VerticalAlignment="Center" Margin="10,0,0,0" Padding="15,6" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
                 </StackPanel>
                 
             </StackPanel>
