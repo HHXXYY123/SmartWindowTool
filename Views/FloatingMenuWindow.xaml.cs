@@ -35,6 +35,10 @@ namespace SmartWindowTool.Views
                 {
                     CustomSizePopup.IsOpen = false;
                     MonitorPopup.IsOpen = false;
+                    
+                    // Clear focus to prevent the clicked button from showing a focus rectangle (white edge) on next show
+                    System.Windows.Input.Keyboard.ClearFocus();
+                    System.Windows.Input.FocusManager.SetFocusedElement(this, null);
                 }
             };
             

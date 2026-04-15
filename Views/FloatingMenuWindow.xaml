@@ -8,6 +8,11 @@
         Topmost="True" ShowInTaskbar="False"
         Deactivated="Window_Deactivated"
         Padding="20">
+    <Window.Resources>
+        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+    </Window.Resources>
     <Border Background="{DynamicResource ApplicationBackgroundBrush}"
             CornerRadius="8"
             BorderBrush="{DynamicResource ControlElevationBorderBrush}"
