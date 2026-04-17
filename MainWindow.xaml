@@ -30,6 +30,7 @@
                                 <ComboBoxItem Content="Right" />
                                 <ComboBoxItem Content="Middle" />
                                 <ComboBoxItem Content="Left" />
+                                <ComboBoxItem Content="None" ToolTip="不使用鼠标点击，仅纯键盘组合键" />
                             </ComboBox>
                         </StackPanel>
                         

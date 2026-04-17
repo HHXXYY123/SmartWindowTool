@@ -72,6 +72,26 @@ namespace SmartWindowTool.Core
         {
             bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
             bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+            bool isShiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+
+            // Check if user configured a keyboard-only shortcut (Mouse button set to None)
+            var requiredButton = _settings.GetParsedMouseButton();
+            if (requiredButton == MouseButtons.None)
+            {
+                // In keyboard-only mode, we trigger when the exact modifiers are met AND a specific key is pressed.
+                // Currently, we'll map "None" mouse button + modifiers + "S" key as the trigger to match user expectation
+                if (e.KeyCode == Keys.S && 
+                    isCtrlDown == _settings.RequireCtrl && 
+                    isShiftDown == _settings.RequireShift && 
+                    isAltDown == _settings.RequireAlt)
+                {
+                    // Trigger menu at current mouse position
+                    var pos = System.Windows.Forms.Cursor.Position;
+                    TriggerContextMenu(pos.X, pos.Y, null);
+                    e.Handled = true;
+                    return;
+                }
+            }
 
             // Alt + Numpad (1-9) for Alignment
             if (isAltDown && !isCtrlDown && e.KeyCode >= Keys.NumPad1 && e.KeyCode <= Keys.NumPad9)
@@ -107,43 +127,60 @@ namespace SmartWindowTool.Core
             bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
             bool isShiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
             bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+            
+            var requiredButton = _settings.GetParsedMouseButton();
 
-            if (e.Button == _settings.GetParsedMouseButton() && 
+            // Only trigger via mouse if a specific mouse button is actually required
+            if (requiredButton != MouseButtons.None && 
+                e.Button == requiredButton && 
                 isCtrlDown == _settings.RequireCtrl &&
                 isShiftDown == _settings.RequireShift &&
                 isAltDown == _settings.RequireAlt)
             {
-                IntPtr target = Win32Api.GetRootWindowFromCursor();
-                if (target != IntPtr.Zero)
-                {
-                    Win32Api.GetWindowThreadProcessId(target, out uint processId);
-                    try
-                    {
-                        var process = System.Diagnostics.Process.GetProcessById((int)processId);
-                        string procName = process.ProcessName + ".exe";
-                        foreach (var blacklisted in _settings.BlacklistProcesses)
-                        {
-                            if (procName.Equals(blacklisted, StringComparison.OrdinalIgnoreCase))
-                            {
-                                // Ignore hotkey for blacklisted process
-                                return;
-                            }
-                        }
-                    }
-                    catch { }
-                }
-
-                // Prevent the original right click from propagating
-                e.Handled = true;
-                
-                Debug.WriteLine("Custom Hotkey Detected!");
-                OnContextMenuRequested?.Invoke(this, new HookEventArgs(e.X, e.Y));
+                TriggerContextMenu(e.X, e.Y, e);
             }
-            else
+            else if (requiredButton != MouseButtons.None)
             {
-                // If it's not the hotkey, we trigger the AnyMouseDown event (used to dismiss the menu)
+                // If it's not the hotkey and we aren't in keyboard-only mode, we trigger the AnyMouseDown event (used to dismiss the menu)
                 OnAnyMouseDown?.Invoke(this, e);
             }
+            else if (requiredButton == MouseButtons.None)
+            {
+                // In keyboard-only mode, we still need to dismiss the menu when user clicks anywhere
+                OnAnyMouseDown?.Invoke(this, e);
+            }
+        }
+
+        private void TriggerContextMenu(int x, int y, MouseEventExtArgs e = null)
+        {
+            IntPtr target = Win32Api.GetRootWindowFromCursor();
+            if (target != IntPtr.Zero)
+            {
+                Win32Api.GetWindowThreadProcessId(target, out uint processId);
+                try
+                {
+                    var process = System.Diagnostics.Process.GetProcessById((int)processId);
+                    string procName = process.ProcessName + ".exe";
+                    foreach (var blacklisted in _settings.BlacklistProcesses)
+                    {
+                        if (procName.Equals(blacklisted, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Ignore hotkey for blacklisted process
+                            return;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            // Prevent the original right click from propagating if triggered by mouse
+            if (e != null)
+            {
+                e.Handled = true;
+            }
+            
+            Debug.WriteLine("Custom Hotkey Detected!");
+            OnContextMenuRequested?.Invoke(this, new HookEventArgs(x, y));
         }
 
         public void Stop()

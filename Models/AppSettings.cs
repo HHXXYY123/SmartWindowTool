@@ -13,7 +13,7 @@ namespace SmartWindowTool.Models
         private bool _requireCtrl = true;
         private bool _requireShift = false;
         private bool _requireAlt = false;
-        private string _triggerButton = "Right"; // ComboBox uses string content
+        private string _triggerButton = "Right"; // "Right", "Middle", "Left", "None"
         private bool _silentStart = false;
         private bool _autoStart = false;
         private bool _runAsAdmin = false;
@@ -150,6 +150,7 @@ namespace SmartWindowTool.Models
         {
             if (TriggerButton == "Middle") return MouseButtons.Middle;
             if (TriggerButton == "Left") return MouseButtons.Left;
+            if (TriggerButton == "None") return MouseButtons.None;
             return MouseButtons.Right;
         }
 
