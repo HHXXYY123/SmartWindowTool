@@ -16,6 +16,23 @@ public partial class App : Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        // 确保单实例运行，如果发现已有实例，则直接杀死旧进程（覆盖）
+        string processName = Process.GetCurrentProcess().ProcessName;
+        int currentProcessId = Process.GetCurrentProcess().Id;
+        Process[] processes = Process.GetProcessesByName(processName);
+        foreach (Process process in processes)
+        {
+            if (process.Id != currentProcessId)
+            {
+                try
+                {
+                    process.Kill();
+                    process.WaitForExit();
+                }
+                catch { }
+            }
+        }
+
         // 加载设置以判断是否静默启动和是否需要管理员权限
         var settings = AppSettings.Load();
 
