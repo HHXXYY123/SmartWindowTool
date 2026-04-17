@@ -79,23 +79,26 @@ namespace SmartWindowTool
             showItem.Click += (s, e) => ShowMainWindow();
             contextMenu.Items.Add(showItem);
             
-            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出程序" };
+            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出" };
             exitItem.Click += (s, e) => ExitApp_Click(null, null);
             
+            var restoreMenuItem = new System.Windows.Controls.MenuItem { Header = "恢复" };
             if (_viewModel.HiddenWindows.Count > 0)
             {
-                contextMenu.Items.Add(new System.Windows.Controls.Separator());
-                var restoreTitle = new System.Windows.Controls.MenuItem { Header = "--- 恢复隐藏的窗口 ---", IsEnabled = false };
-                contextMenu.Items.Add(restoreTitle);
-                
                 foreach (var hiddenWin in _viewModel.HiddenWindows)
                 {
                     var item = new System.Windows.Controls.MenuItem { Header = hiddenWin.DisplayText };
                     item.Click += (s, e) => RestoreWindow(hiddenWin);
-                    contextMenu.Items.Add(item);
+                    restoreMenuItem.Items.Add(item);
                 }
             }
+            else
+            {
+                var emptyItem = new System.Windows.Controls.MenuItem { Header = "暂无隐藏窗口", IsEnabled = false };
+                restoreMenuItem.Items.Add(emptyItem);
+            }
 
+            contextMenu.Items.Add(restoreMenuItem);
             contextMenu.Items.Add(new System.Windows.Controls.Separator());
             contextMenu.Items.Add(exitItem);
 

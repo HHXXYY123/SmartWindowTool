@@ -41,27 +41,20 @@ namespace SmartWindowTool.Core
 
         private void GlobalHook_MouseWheelExt(object sender, MouseEventExtArgs e)
         {
-            bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-            bool isShiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-            bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-
-            if (isCtrlDown && isShiftDown && !isAltDown)
+            if (_settings.EnableTransparencyWheel && _settings.TransparencyHotkey.IsModifierMatch(GetAsyncKeyState))
             {
-                // Ctrl + Shift + Wheel -> Transparency
                 int delta = e.Delta > 0 ? 10 : -10;
                 OnWindowTransparencyAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
-            else if (isCtrlDown && isAltDown && !isShiftDown)
+            else if (_settings.EnableSizeWheel && _settings.HeightHotkey.IsModifierMatch(GetAsyncKeyState))
             {
-                // Ctrl + Alt + Wheel -> Height
                 int delta = e.Delta > 0 ? 30 : -30;
                 OnWindowHeightAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
-            else if (isShiftDown && isAltDown && !isCtrlDown)
+            else if (_settings.EnableSizeWheel && _settings.WidthHotkey.IsModifierMatch(GetAsyncKeyState))
             {
-                // Shift + Alt + Wheel -> Width
                 int delta = e.Delta > 0 ? 30 : -30;
                 OnWindowWidthAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
@@ -70,20 +63,14 @@ namespace SmartWindowTool.Core
 
         private void GlobalHook_KeyDown(object sender, KeyEventArgs e)
         {
-            bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-            bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-            bool isShiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+            // Check if user configured a keyboard-only shortcut
+            var menuHotkey = _settings.MenuHotkey;
+            var requiredButton = menuHotkey.GetParsedMouseButton();
+            var requiredKey = menuHotkey.GetParsedKey();
 
-            // Check if user configured a keyboard-only shortcut (Mouse button set to None)
-            var requiredButton = _settings.GetParsedMouseButton();
-            if (requiredButton == MouseButtons.None)
+            if (requiredButton == MouseButtons.None && requiredKey != Keys.None)
             {
-                // In keyboard-only mode, we trigger when the exact modifiers are met AND a specific key is pressed.
-                // Currently, we'll map "None" mouse button + modifiers + "S" key as the trigger to match user expectation
-                if (e.KeyCode == Keys.S && 
-                    isCtrlDown == _settings.RequireCtrl && 
-                    isShiftDown == _settings.RequireShift && 
-                    isAltDown == _settings.RequireAlt)
+                if (e.KeyCode == requiredKey && menuHotkey.IsModifierMatch(GetAsyncKeyState))
                 {
                     // Trigger menu at current mouse position
                     var pos = System.Windows.Forms.Cursor.Position;
@@ -93,23 +80,20 @@ namespace SmartWindowTool.Core
                 }
             }
 
+            bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+            bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
             // Alt + Numpad (1-9) for Alignment
-            if (isAltDown && !isCtrlDown && e.KeyCode >= Keys.NumPad1 && e.KeyCode <= Keys.NumPad9)
+            if (_settings.EnableNumpadAlign && isAltDown && !isCtrlDown && e.KeyCode >= Keys.NumPad1 && e.KeyCode <= Keys.NumPad9)
             {
                 WindowAlignment alignment = (WindowAlignment)(e.KeyCode - Keys.NumPad0);
                 OnWindowAlignmentRequested?.Invoke(this, alignment);
                 e.Handled = true;
             }
             // Ctrl + Numpad (0-9) for Transparency
-            else if (isCtrlDown && !isAltDown && e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9)
+            else if (_settings.EnableNumpadMove && isCtrlDown && !isAltDown && e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9)
             {
                 int level = e.KeyCode - Keys.NumPad0;
-                // SmartContextMenu behavior:
-                // Numpad 0: 100% opaque
-                // Numpad 1: 10% transparency (90% opaque)
-                // Numpad 2: 20% transparency (80% opaque)
-                // ...
-                // Numpad 9: 90% transparency (10% opaque)
                 int transparency = level == 0 ? 100 : (100 - (level * 10));
                 OnWindowTransparencyRequested?.Invoke(this, transparency);
                 e.Handled = true;
@@ -144,11 +128,7 @@ namespace SmartWindowTool.Core
 
         private void GlobalHook_MouseDownExt(object sender, MouseEventExtArgs e)
         {
-            bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-            bool isShiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-            bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-            
-            var requiredButton = _settings.GetParsedMouseButton();
+            var requiredButton = _settings.MenuHotkey.GetParsedMouseButton();
 
             // Ignore simulated clicks (e.g. from Everywhere or other hotkey tools)
             // By checking if the physical mouse button is actually held down
@@ -156,15 +136,15 @@ namespace SmartWindowTool.Core
             if (requiredButton == MouseButtons.Right) isPhysicalButtonDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
             else if (requiredButton == MouseButtons.Left) isPhysicalButtonDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
             else if (requiredButton == MouseButtons.Middle) isPhysicalButtonDown = (GetAsyncKeyState(0x04) & 0x8000) != 0;
+            else if (requiredButton == MouseButtons.XButton1) isPhysicalButtonDown = (GetAsyncKeyState(0x05) & 0x8000) != 0;
+            else if (requiredButton == MouseButtons.XButton2) isPhysicalButtonDown = (GetAsyncKeyState(0x06) & 0x8000) != 0;
 
             // Only trigger via mouse if a specific mouse button is actually required
             if (requiredButton != MouseButtons.None && 
                 e.Button == requiredButton && 
                 isPhysicalButtonDown &&
                 !IsAnyNonModifierKeyPressed() &&
-                isCtrlDown == _settings.RequireCtrl &&
-                isShiftDown == _settings.RequireShift &&
-                isAltDown == _settings.RequireAlt)
+                _settings.MenuHotkey.IsModifierMatch(GetAsyncKeyState))
             {
                 TriggerContextMenu(e.X, e.Y, e);
             }

@@ -8,42 +8,90 @@ using System.Collections.ObjectModel;
 
 namespace SmartWindowTool.Models
 {
+    public class HotkeyConfig : INotifyPropertyChanged
+    {
+        private string _modifier1 = "Ctrl";
+        private string _modifier2 = "Shift";
+        private string _key = "None";
+        private string _mouseButton = "Right";
+
+        public string Modifier1 { get => _modifier1; set { _modifier1 = value; OnPropertyChanged(); } }
+        public string Modifier2 { get => _modifier2; set { _modifier2 = value; OnPropertyChanged(); } }
+        public string Key { get => _key; set { _key = value; OnPropertyChanged(); } }
+        public string MouseButton { get => _mouseButton; set { _mouseButton = value; OnPropertyChanged(); } }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public MouseButtons GetParsedMouseButton()
+        {
+            if (MouseButton == "Middle") return MouseButtons.Middle;
+            if (MouseButton == "Left") return MouseButtons.Left;
+            if (MouseButton == "XButton1") return MouseButtons.XButton1;
+            if (MouseButton == "XButton2") return MouseButtons.XButton2;
+            if (MouseButton == "None") return MouseButtons.None;
+            return MouseButtons.Right;
+        }
+
+        public Keys GetParsedKey()
+        {
+            if (Enum.TryParse<Keys>(Key, out var k)) return k;
+            return Keys.None;
+        }
+
+        public bool IsModifierMatch(Func<int, short> getAsyncKeyState)
+        {
+            bool isCtrlDown = (getAsyncKeyState(0x11) & 0x8000) != 0; // VK_CONTROL
+            bool isShiftDown = (getAsyncKeyState(0x10) & 0x8000) != 0; // VK_SHIFT
+            bool isAltDown = (getAsyncKeyState(0x12) & 0x8000) != 0; // VK_MENU
+            bool isWinLDown = (getAsyncKeyState(0x5B) & 0x8000) != 0; // VK_LWIN
+            bool isWinRDown = (getAsyncKeyState(0x5C) & 0x8000) != 0; // VK_RWIN
+
+            bool reqCtrl = Modifier1 == "Ctrl" || Modifier2 == "Ctrl";
+            bool reqShift = Modifier1 == "Shift" || Modifier2 == "Shift";
+            bool reqAlt = Modifier1 == "Alt" || Modifier2 == "Alt";
+            bool reqWinL = Modifier1 == "WinL" || Modifier2 == "WinL";
+            bool reqWinR = Modifier1 == "WinR" || Modifier2 == "WinR";
+
+            return isCtrlDown == reqCtrl &&
+                   isShiftDown == reqShift &&
+                   isAltDown == reqAlt &&
+                   isWinLDown == reqWinL &&
+                   isWinRDown == reqWinR;
+        }
+    }
+
     public class AppSettings : INotifyPropertyChanged
     {
-        private bool _requireCtrl = true;
-        private bool _requireShift = false;
-        private bool _requireAlt = false;
-        private string _triggerButton = "Right"; // "Right", "Middle", "Left", "None"
         private bool _silentStart = false;
         private bool _autoStart = false;
         private bool _runAsAdmin = false;
-        
+
+        private HotkeyConfig _menuHotkey = new HotkeyConfig { Modifier1 = "Ctrl", Modifier2 = "Shift", MouseButton = "Right" };
+        private HotkeyConfig _transparencyHotkey = new HotkeyConfig { Modifier1 = "Ctrl", Modifier2 = "Shift", MouseButton = "None" };
+        private HotkeyConfig _widthHotkey = new HotkeyConfig { Modifier1 = "Shift", Modifier2 = "Alt", MouseButton = "None" };
+        private HotkeyConfig _heightHotkey = new HotkeyConfig { Modifier1 = "Ctrl", Modifier2 = "Alt", MouseButton = "None" };
+
+        private bool _enableNumpadAlign = true;
+        private bool _enableNumpadMove = true;
+        private bool _enableTransparencyWheel = true;
+        private bool _enableSizeWheel = true;
+
+        public HotkeyConfig MenuHotkey { get => _menuHotkey; set { _menuHotkey = value; OnPropertyChanged(); } }
+        public HotkeyConfig TransparencyHotkey { get => _transparencyHotkey; set { _transparencyHotkey = value; OnPropertyChanged(); } }
+        public HotkeyConfig WidthHotkey { get => _widthHotkey; set { _widthHotkey = value; OnPropertyChanged(); } }
+        public HotkeyConfig HeightHotkey { get => _heightHotkey; set { _heightHotkey = value; OnPropertyChanged(); } }
+
+        public bool EnableNumpadAlign { get => _enableNumpadAlign; set { _enableNumpadAlign = value; OnPropertyChanged(); } }
+        public bool EnableNumpadMove { get => _enableNumpadMove; set { _enableNumpadMove = value; OnPropertyChanged(); } }
+        public bool EnableTransparencyWheel { get => _enableTransparencyWheel; set { _enableTransparencyWheel = value; OnPropertyChanged(); } }
+        public bool EnableSizeWheel { get => _enableSizeWheel; set { _enableSizeWheel = value; OnPropertyChanged(); } }
+
         public ObservableCollection<WindowSizeItem> CustomWindowSizes { get; set; } = new ObservableCollection<WindowSizeItem>();
         public ObservableCollection<string> BlacklistProcesses { get; set; } = new ObservableCollection<string>();
-
-        public bool RequireCtrl
-        {
-            get => _requireCtrl;
-            set { _requireCtrl = value; OnPropertyChanged(); }
-        }
-
-        public bool RequireShift
-        {
-            get => _requireShift;
-            set { _requireShift = value; OnPropertyChanged(); }
-        }
-
-        public bool RequireAlt
-        {
-            get => _requireAlt;
-            set { _requireAlt = value; OnPropertyChanged(); }
-        }
-
-        public string TriggerButton
-        {
-            get => _triggerButton;
-            set { _triggerButton = value; OnPropertyChanged(); }
-        }
 
         public bool SilentStart
         {
@@ -144,14 +192,6 @@ namespace SmartWindowTool.Models
                     CustomWindowSizes.Add(item);
                 }
             }
-        }
-
-        public MouseButtons GetParsedMouseButton()
-        {
-            if (TriggerButton == "Middle") return MouseButtons.Middle;
-            if (TriggerButton == "Left") return MouseButtons.Left;
-            if (TriggerButton == "None") return MouseButtons.None;
-            return MouseButtons.Right;
         }
 
         public static AppSettings Load()
