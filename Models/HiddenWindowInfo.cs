@@ -12,6 +12,7 @@ namespace SmartWindowTool.Models
         private DateTime _hiddenAt;
         private bool _isClickThrough;
         private bool _isTray;
+        private System.Windows.Forms.NotifyIcon _appTrayIcon;
 
         public IntPtr Hwnd
         {
@@ -72,6 +73,16 @@ namespace SmartWindowTool.Models
                 _isTray = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(DisplayText));
+            }
+        }
+
+        public System.Windows.Forms.NotifyIcon AppTrayIcon
+        {
+            get => _appTrayIcon;
+            set
+            {
+                _appTrayIcon = value;
+                OnPropertyChanged();
             }
         }
 

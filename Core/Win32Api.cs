@@ -125,6 +125,28 @@ namespace SmartWindowTool.Core
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
         public const int SW_SHOW = 5;
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
+        public const uint WM_GETICON = 0x007F;
+        public const int ICON_SMALL = 0;
+        public const int ICON_BIG = 1;
+        public const int ICON_SMALL2 = 2;
+
+        [DllImport("user32.dll", EntryPoint = "GetClassLong")]
+        public static extern IntPtr GetClassLongPtr32(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "GetClassLongPtr")]
+        public static extern IntPtr GetClassLongPtr64(IntPtr hWnd, int nIndex);
+
+        public static IntPtr GetClassLongPtr(IntPtr hWnd, int nIndex)
+        {
+            if (IntPtr.Size == 4) return GetClassLongPtr32(hWnd, nIndex);
+            return GetClassLongPtr64(hWnd, nIndex);
+        }
+        
+        public const int GCLP_HICON = -14;
+        public const int GCLP_HICONSM = -34;
+
         [DllImport("user32.dll")]
         public static extern IntPtr GetForegroundWindow();
 

@@ -50,11 +50,78 @@ namespace SmartWindowTool.ViewModels
                 IsTray = isTray
             };
 
+            if (isTray)
+            {
+                // Try to extract the window's icon
+                System.Drawing.Icon icon = null;
+                try
+                {
+                    // Attempt 1: Get window icon via WM_GETICON
+                    IntPtr hIcon = Win32Api.SendMessage(hwnd, Win32Api.WM_GETICON, Win32Api.ICON_SMALL2, 0);
+                    if (hIcon == IntPtr.Zero) hIcon = Win32Api.SendMessage(hwnd, Win32Api.WM_GETICON, Win32Api.ICON_SMALL, 0);
+                    if (hIcon == IntPtr.Zero) hIcon = Win32Api.SendMessage(hwnd, Win32Api.WM_GETICON, Win32Api.ICON_BIG, 0);
+                    if (hIcon == IntPtr.Zero) hIcon = Win32Api.GetClassLongPtr(hwnd, Win32Api.GCLP_HICONSM);
+                    if (hIcon == IntPtr.Zero) hIcon = Win32Api.GetClassLongPtr(hwnd, Win32Api.GCLP_HICON);
+
+                    if (hIcon != IntPtr.Zero)
+                    {
+                        icon = System.Drawing.Icon.FromHandle(hIcon);
+                    }
+                    else
+                    {
+                        // Attempt 2: Extract from process executable
+                        Win32Api.GetWindowThreadProcessId(hwnd, out uint pid);
+                        var process = System.Diagnostics.Process.GetProcessById((int)pid);
+                        icon = System.Drawing.Icon.ExtractAssociatedIcon(process.MainModule.FileName);
+                    }
+                }
+                catch { }
+
+                if (icon == null) icon = System.Drawing.SystemIcons.Application;
+
+                var trayIcon = new System.Windows.Forms.NotifyIcon
+                {
+                    Icon = icon,
+                    Text = string.IsNullOrWhiteSpace(info.Title) ? info.ClassName : (info.Title.Length > 63 ? info.Title.Substring(0, 60) + "..." : info.Title),
+                    Visible = true
+                };
+
+                trayIcon.MouseClick += (s, e) =>
+                {
+                    if (e.Button == System.Windows.Forms.MouseButtons.Left || e.Button == System.Windows.Forms.MouseButtons.Right)
+                    {
+                        RestoreWindowFromViewModel(info);
+                    }
+                };
+
+                info.AppTrayIcon = trayIcon;
+            }
+
             // Run on UI thread
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 HiddenWindows.Add(info);
             });
+        }
+
+        public void RestoreWindowFromViewModel(HiddenWindowInfo info)
+        {
+            if (info.IsClickThrough)
+            {
+                uint exStyle = Win32Api.GetWindowLong(info.Hwnd, Win32Api.GWL_EXSTYLE);
+                exStyle &= ~Win32Api.WS_EX_TRANSPARENT;
+                Win32Api.SetWindowLong(info.Hwnd, Win32Api.GWL_EXSTYLE, exStyle);
+            }
+            
+            if (info.IsTray || !info.IsClickThrough)
+            {
+                Win32Api.ShowWindow(info.Hwnd, Win32Api.SW_SHOW);
+                Win32Api.SetWindowPos(info.Hwnd, IntPtr.Zero, 0, 0, 0, 0, 
+                    Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
+                Win32Api.SetForegroundWindow(info.Hwnd);
+            }
+            
+            RemoveHiddenWindow(info);
         }
 
         public void AddClickThroughWindow(IntPtr hwnd)
@@ -82,6 +149,13 @@ namespace SmartWindowTool.ViewModels
 
         public void RemoveHiddenWindow(HiddenWindowInfo info)
         {
+            if (info.AppTrayIcon != null)
+            {
+                info.AppTrayIcon.Visible = false;
+                info.AppTrayIcon.Dispose();
+                info.AppTrayIcon = null;
+            }
+
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 HiddenWindows.Remove(info);

@@ -503,17 +503,7 @@ namespace SmartWindowTool
         {
             if (sender is FrameworkElement element && element.DataContext is Models.HiddenWindowInfo info)
             {
-                if (info.IsClickThrough)
-                {
-                    uint exStyle = Win32Api.GetWindowLong(info.Hwnd, Win32Api.GWL_EXSTYLE);
-                    Win32Api.SetWindowLong(info.Hwnd, Win32Api.GWL_EXSTYLE, exStyle & ~Win32Api.WS_EX_TRANSPARENT);
-                }
-                else
-                {
-                    Win32Api.ShowWindow(info.Hwnd, Win32Api.SW_SHOW);
-                    Win32Api.SetForegroundWindow(info.Hwnd);
-                }
-                _viewModel.RemoveHiddenWindow(info);
+                _viewModel.RestoreWindowFromViewModel(info);
             }
         }
 
