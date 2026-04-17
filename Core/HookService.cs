@@ -22,6 +22,8 @@ namespace SmartWindowTool.Core
         public event EventHandler<WindowAlignment> OnWindowAlignmentRequested;
         public event EventHandler<int> OnWindowTransparencyRequested;
         public event EventHandler<int> OnWindowTransparencyAdjustRequested;
+        public event EventHandler<int> OnWindowHeightAdjustRequested;
+        public event EventHandler<int> OnWindowWidthAdjustRequested;
         public event EventHandler<MouseEventExtArgs> OnAnyMouseDown;
 
         public HookService(Models.AppSettings settings)
@@ -41,12 +43,27 @@ namespace SmartWindowTool.Core
         {
             bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
             bool isShiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+            bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
 
-            if (isCtrlDown && isShiftDown)
+            if (isCtrlDown && isShiftDown && !isAltDown)
             {
-                // e.Delta is usually 120 or -120
+                // Ctrl + Shift + Wheel -> Transparency
                 int delta = e.Delta > 0 ? 10 : -10;
                 OnWindowTransparencyAdjustRequested?.Invoke(this, delta);
+                e.Handled = true;
+            }
+            else if (isCtrlDown && isAltDown && !isShiftDown)
+            {
+                // Ctrl + Alt + Wheel -> Height
+                int delta = e.Delta > 0 ? 30 : -30;
+                OnWindowHeightAdjustRequested?.Invoke(this, delta);
+                e.Handled = true;
+            }
+            else if (isShiftDown && isAltDown && !isCtrlDown)
+            {
+                // Shift + Alt + Wheel -> Width
+                int delta = e.Delta > 0 ? 30 : -30;
+                OnWindowWidthAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
         }

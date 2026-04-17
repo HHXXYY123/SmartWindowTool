@@ -28,6 +28,8 @@ namespace SmartWindowTool
             _hookService.OnWindowAlignmentRequested += OnWindowAlignmentRequested;
             _hookService.OnWindowTransparencyRequested += OnWindowTransparencyRequested;
             _hookService.OnWindowTransparencyAdjustRequested += OnWindowTransparencyAdjustRequested;
+            _hookService.OnWindowHeightAdjustRequested += OnWindowHeightAdjustRequested;
+            _hookService.OnWindowWidthAdjustRequested += OnWindowWidthAdjustRequested;
             _hookService.OnAnyMouseDown += OnAnyMouseDown;
             _hookService.Start();
             
@@ -310,6 +312,44 @@ namespace SmartWindowTool
                 }
 
                 Win32Api.SetLayeredWindowAttributes(target, 0, newAlpha, Win32Api.LWA_ALPHA);
+            });
+        }
+
+        private void OnWindowHeightAdjustRequested(object sender, int delta)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                IntPtr target = Win32Api.GetRootWindowFromCursor();
+                if (target == IntPtr.Zero) return;
+
+                if (Win32Api.GetWindowRect(target, out Win32Api.RECT rect))
+                {
+                    int width = rect.Right - rect.Left;
+                    int height = rect.Bottom - rect.Top + delta;
+                    if (height < 100) height = 100; // Minimum height to prevent window from disappearing
+                    
+                    Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, width, height, 
+                        Win32Api.SWP_NOMOVE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
+                }
+            });
+        }
+
+        private void OnWindowWidthAdjustRequested(object sender, int delta)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                IntPtr target = Win32Api.GetRootWindowFromCursor();
+                if (target == IntPtr.Zero) return;
+
+                if (Win32Api.GetWindowRect(target, out Win32Api.RECT rect))
+                {
+                    int width = rect.Right - rect.Left + delta;
+                    int height = rect.Bottom - rect.Top;
+                    if (width < 100) width = 100; // Minimum width
+                    
+                    Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, width, height, 
+                        Win32Api.SWP_NOMOVE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
+                }
             });
         }
 
