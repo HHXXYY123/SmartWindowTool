@@ -122,6 +122,26 @@ namespace SmartWindowTool.Core
         private const int VK_SHIFT = 0x10;
         private const int VK_MENU = 0x12; // Alt
 
+        private bool IsAnyNonModifierKeyPressed()
+        {
+            // Check A-Z (0x41 - 0x5A)
+            for (int i = 0x41; i <= 0x5A; i++)
+            {
+                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
+            }
+            // Check 0-9 (0x30 - 0x39)
+            for (int i = 0x30; i <= 0x39; i++)
+            {
+                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
+            }
+            // Check F1-F12 (0x70 - 0x7B)
+            for (int i = 0x70; i <= 0x7B; i++)
+            {
+                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
+            }
+            return false;
+        }
+
         private void GlobalHook_MouseDownExt(object sender, MouseEventExtArgs e)
         {
             bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -130,9 +150,18 @@ namespace SmartWindowTool.Core
             
             var requiredButton = _settings.GetParsedMouseButton();
 
+            // Ignore simulated clicks (e.g. from Everywhere or other hotkey tools)
+            // By checking if the physical mouse button is actually held down
+            bool isPhysicalButtonDown = false;
+            if (requiredButton == MouseButtons.Right) isPhysicalButtonDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
+            else if (requiredButton == MouseButtons.Left) isPhysicalButtonDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
+            else if (requiredButton == MouseButtons.Middle) isPhysicalButtonDown = (GetAsyncKeyState(0x04) & 0x8000) != 0;
+
             // Only trigger via mouse if a specific mouse button is actually required
             if (requiredButton != MouseButtons.None && 
                 e.Button == requiredButton && 
+                isPhysicalButtonDown &&
+                !IsAnyNonModifierKeyPressed() &&
                 isCtrlDown == _settings.RequireCtrl &&
                 isShiftDown == _settings.RequireShift &&
                 isAltDown == _settings.RequireAlt)
