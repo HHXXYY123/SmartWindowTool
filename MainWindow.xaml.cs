@@ -301,19 +301,6 @@ namespace SmartWindowTool
                     if (pct > 100) pct = 100;
 
                     this.Opacity = pct / 100.0;
-                    double opacity = transparencyPercentage / 100.0;
-                    if (opacity < 0.1) opacity = 0.1;
-                    if (opacity > 1.0) opacity = 1.0;
-
-                    uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
-                    if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
-                    {
-                        Win32Api.SetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE, exStyleSelf & ~Win32Api.WS_EX_LAYERED);
-                        Win32Api.SetWindowPos(mainHwnd, IntPtr.Zero, 0, 0, 0, 0,
-                            Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                    }
-
-                    this.Opacity = opacity;
                     return;
                 }
 
@@ -351,20 +338,6 @@ namespace SmartWindowTool
                     if (newPercentage > 100) newPercentage = 100;
 
                     this.Opacity = newPercentage / 100.0;
-                    int currPct = (int)Math.Round(this.Opacity * 100.0);
-                    int newPct = currPct + deltaPercentage;
-                    if (newPct < 10) newPct = 10;
-                    if (newPct > 100) newPct = 100;
-
-                    uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
-                    if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
-                    {
-                        Win32Api.SetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE, exStyleSelf & ~Win32Api.WS_EX_LAYERED);
-                        Win32Api.SetWindowPos(mainHwnd, IntPtr.Zero, 0, 0, 0, 0,
-                            Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                    }
-
-                    this.Opacity = newPct / 100.0;
                     return;
                 }
 
@@ -378,13 +351,13 @@ namespace SmartWindowTool
                     }
                 }
                 
-                int currentPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
-                int newPercentage = currentPercentage + deltaPercentage;
+                int targetPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
+                int adjustedPercentage = targetPercentage + deltaPercentage;
                 
-                if (newPercentage < 10) newPercentage = 10;
-                if (newPercentage > 100) newPercentage = 100;
+                if (adjustedPercentage < 10) adjustedPercentage = 10;
+                if (adjustedPercentage > 100) adjustedPercentage = 100;
 
-                byte newAlpha = (byte)(newPercentage / 100.0 * 255);
+                byte newAlpha = (byte)(adjustedPercentage / 100.0 * 255);
                 
                 if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
                 {
