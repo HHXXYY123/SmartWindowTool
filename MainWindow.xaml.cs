@@ -300,7 +300,10 @@ namespace SmartWindowTool
                     if (pct < 10) pct = 10;
                     if (pct > 100) pct = 100;
 
-                    this.Opacity = pct / 100.0;
+                    if (RootGrid.Background is System.Windows.Media.SolidColorBrush brush)
+                    {
+                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(pct / 100.0 * 255), 32, 32, 32);
+                    }
                     return;
                 }
 
@@ -332,12 +335,15 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
-                    int currentPercentage = (int)Math.Round(this.Opacity * 100);
-                    int newPercentage = currentPercentage + deltaPercentage;
-                    if (newPercentage < 10) newPercentage = 10;
-                    if (newPercentage > 100) newPercentage = 100;
+                    if (RootGrid.Background is System.Windows.Media.SolidColorBrush brush)
+                    {
+                        int currPct = (int)Math.Round(brush.Color.A / 255.0 * 100.0);
+                        int newPct = currPct + deltaPercentage;
+                        if (newPct < 10) newPct = 10;
+                        if (newPct > 100) newPct = 100;
 
-                    this.Opacity = newPercentage / 100.0;
+                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(newPct / 100.0 * 255), 32, 32, 32);
+                    }
                     return;
                 }
 
