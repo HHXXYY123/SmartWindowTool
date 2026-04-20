@@ -296,6 +296,10 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
+                    double opacity = transparencyPercentage / 100.0;
+                    if (opacity < 0.1) opacity = 0.1;
+                    if (opacity > 1.0) opacity = 1.0;
+
                     uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
                     if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
                     {
@@ -304,14 +308,7 @@ namespace SmartWindowTool
                             Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
                     }
 
-                    int pct = transparencyPercentage;
-                    if (pct < 10) pct = 10;
-                    if (pct > 100) pct = 100;
-
-                    if (this.Resources["MainWindowBgBrush"] is System.Windows.Media.SolidColorBrush brush)
-                    {
-                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(pct / 100.0 * 255), 32, 32, 32);
-                    }
+                    this.Opacity = opacity;
                     return;
                 }
 
@@ -343,6 +340,11 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
+                    int currPct = (int)Math.Round(this.Opacity * 100.0);
+                    int newPct = currPct + deltaPercentage;
+                    if (newPct < 10) newPct = 10;
+                    if (newPct > 100) newPct = 100;
+
                     uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
                     if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
                     {
@@ -351,14 +353,7 @@ namespace SmartWindowTool
                             Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
                     }
 
-                    if (this.Resources["MainWindowBgBrush"] is System.Windows.Media.SolidColorBrush brush)
-                    {
-                        int currPct = (int)Math.Round(brush.Color.A / 255.0 * 100.0);
-                        int newPct = currPct + deltaPercentage;
-                        if (newPct < 10) newPct = 10;
-                        if (newPct > 100) newPct = 100;
-                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(newPct / 100.0 * 255), 32, 32, 32);
-                    }
+                    this.Opacity = newPct / 100.0;
                     return;
                 }
 
