@@ -351,13 +351,13 @@ namespace SmartWindowTool
                     }
                 }
                 
-                int currentPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
-                int newPercentage = currentPercentage + deltaPercentage;
+                int targetPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
+                int adjustedPercentage = targetPercentage + deltaPercentage;
                 
-                if (newPercentage < 10) newPercentage = 10;
-                if (newPercentage > 100) newPercentage = 100;
+                if (adjustedPercentage < 10) adjustedPercentage = 10;
+                if (adjustedPercentage > 100) adjustedPercentage = 100;
 
-                byte newAlpha = (byte)(newPercentage / 100.0 * 255);
+                byte newAlpha = (byte)(adjustedPercentage / 100.0 * 255);
                 
                 if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
                 {
