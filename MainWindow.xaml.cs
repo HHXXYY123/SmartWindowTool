@@ -296,22 +296,11 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
-                    uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
-                    if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
-                    {
-                        Win32Api.SetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE, exStyleSelf & ~Win32Api.WS_EX_LAYERED);
-                        Win32Api.SetWindowPos(mainHwnd, IntPtr.Zero, 0, 0, 0, 0,
-                            Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                    }
-
                     int pct = transparencyPercentage;
                     if (pct < 10) pct = 10;
                     if (pct > 100) pct = 100;
 
-                    if (this.Resources["MainWindowBgBrush"] is System.Windows.Media.SolidColorBrush brush)
-                    {
-                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(pct / 100.0 * 255), 32, 32, 32);
-                    }
+                    this.Opacity = pct / 100.0;
                     return;
                 }
 
@@ -343,22 +332,12 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
-                    uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
-                    if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
-                    {
-                        Win32Api.SetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE, exStyleSelf & ~Win32Api.WS_EX_LAYERED);
-                        Win32Api.SetWindowPos(mainHwnd, IntPtr.Zero, 0, 0, 0, 0,
-                            Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                    }
+                    int currentPercentage = (int)Math.Round(this.Opacity * 100);
+                    int newPercentage = currentPercentage + deltaPercentage;
+                    if (newPercentage < 10) newPercentage = 10;
+                    if (newPercentage > 100) newPercentage = 100;
 
-                    if (this.Resources["MainWindowBgBrush"] is System.Windows.Media.SolidColorBrush brush)
-                    {
-                        int currPct = (int)Math.Round(brush.Color.A / 255.0 * 100.0);
-                        int newPct = currPct + deltaPercentage;
-                        if (newPct < 10) newPct = 10;
-                        if (newPct > 100) newPct = 100;
-                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(newPct / 100.0 * 255), 32, 32, 32);
-                    }
+                    this.Opacity = newPercentage / 100.0;
                     return;
                 }
 
