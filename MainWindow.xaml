@@ -5,13 +5,10 @@
         xmlns:controls="clr-namespace:SmartWindowTool.Controls"
         Title="Smart Window Tool" Height="650" Width="720"
         WindowBackdropType="None"
-        Background="#FF202020"
+        Background="#202020"
         ExtendsContentIntoTitleBar="True"
         WindowCornerPreference="Round">
-    <ui:FluentWindow.Resources>
-        <SolidColorBrush x:Key="MainWindowBgBrush" Color="#FF202020"/>
-    </ui:FluentWindow.Resources>
-    <Grid Background="{StaticResource MainWindowBgBrush}">
+    <Grid Background="#202020">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
