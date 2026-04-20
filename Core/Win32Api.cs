@@ -163,5 +163,14 @@ namespace SmartWindowTool.Core
             }
             return IntPtr.Zero;
         }
+
+        [DllImport("dwmapi.dll", PreserveSig = false)]
+        public static extern void DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
+        public const int DWMSBT_NONE = 1;
+
+        public const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+        public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     }
 }

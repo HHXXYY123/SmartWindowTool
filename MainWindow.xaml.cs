@@ -13,6 +13,8 @@ namespace SmartWindowTool
         private FloatingMenuWindow _floatingMenu;
         private ViewModels.MainViewModel _viewModel;
         private System.Windows.Forms.NotifyIcon _notifyIcon;
+        private Wpf.Ui.Controls.WindowBackdropType _originalBackdropType;
+        private bool _backdropOverridden;
 
         public MainWindow()
         {
@@ -20,6 +22,16 @@ namespace SmartWindowTool
             
             _viewModel = new ViewModels.MainViewModel();
             this.DataContext = _viewModel;
+
+            _originalBackdropType = this.WindowBackdropType;
+            
+            // Restore window position if saved
+            if (!double.IsNaN(_viewModel.Settings.MainWindowLeft) && !double.IsNaN(_viewModel.Settings.MainWindowTop))
+            {
+                this.WindowStartupLocation = WindowStartupLocation.Manual;
+                this.Left = _viewModel.Settings.MainWindowLeft;
+                this.Top = _viewModel.Settings.MainWindowTop;
+            }
             
             _floatingMenu = new FloatingMenuWindow(_viewModel);
             
@@ -79,26 +91,23 @@ namespace SmartWindowTool
             showItem.Click += (s, e) => ShowMainWindow();
             contextMenu.Items.Add(showItem);
             
-            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出" };
+            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出程序" };
             exitItem.Click += (s, e) => ExitApp_Click(null, null);
             
-            var restoreMenuItem = new System.Windows.Controls.MenuItem { Header = "恢复" };
             if (_viewModel.HiddenWindows.Count > 0)
             {
+                contextMenu.Items.Add(new System.Windows.Controls.Separator());
+                var restoreMenu = new System.Windows.Controls.MenuItem { Header = "恢复" };
+                
                 foreach (var hiddenWin in _viewModel.HiddenWindows)
                 {
                     var item = new System.Windows.Controls.MenuItem { Header = hiddenWin.DisplayText };
                     item.Click += (s, e) => RestoreWindow(hiddenWin);
-                    restoreMenuItem.Items.Add(item);
+                    restoreMenu.Items.Add(item);
                 }
-            }
-            else
-            {
-                var emptyItem = new System.Windows.Controls.MenuItem { Header = "暂无隐藏窗口", IsEnabled = false };
-                restoreMenuItem.Items.Add(emptyItem);
+                contextMenu.Items.Add(restoreMenu);
             }
 
-            contextMenu.Items.Add(restoreMenuItem);
             contextMenu.Items.Add(new System.Windows.Controls.Separator());
             contextMenu.Items.Add(exitItem);
 
@@ -150,6 +159,12 @@ namespace SmartWindowTool
             {
                 e.Cancel = true;
                 this.Hide();
+            }
+            else
+            {
+                _viewModel.Settings.MainWindowLeft = this.Left;
+                _viewModel.Settings.MainWindowTop = this.Top;
+                _viewModel.Settings.Save();
             }
         }
 
@@ -272,6 +287,34 @@ namespace SmartWindowTool
                 IntPtr target = Win32Api.GetRootWindowFromCursor();
                 if (target == IntPtr.Zero) return;
 
+                Win32Api.GetWindowThreadProcessId(target, out uint pid);
+                if (pid == (uint)Process.GetCurrentProcess().Id)
+                {
+                    target = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                }
+
+                var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (target == mainHwnd)
+                {
+                    uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
+                    if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
+                    {
+                        Win32Api.SetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE, exStyleSelf & ~Win32Api.WS_EX_LAYERED);
+                        Win32Api.SetWindowPos(mainHwnd, IntPtr.Zero, 0, 0, 0, 0,
+                            Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
+                    }
+
+                    int pct = transparencyPercentage;
+                    if (pct < 10) pct = 10;
+                    if (pct > 100) pct = 100;
+
+                    if (this.Resources["MainWindowBgBrush"] is System.Windows.Media.SolidColorBrush brush)
+                    {
+                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(pct / 100.0 * 255), 32, 32, 32);
+                    }
+                    return;
+                }
+
                 byte alpha = (byte)(transparencyPercentage / 100.0 * 255);
                 
                 uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
@@ -291,6 +334,34 @@ namespace SmartWindowTool
                 IntPtr target = Win32Api.GetRootWindowFromCursor();
                 if (target == IntPtr.Zero) return;
 
+                Win32Api.GetWindowThreadProcessId(target, out uint pid);
+                if (pid == (uint)Process.GetCurrentProcess().Id)
+                {
+                    target = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                }
+
+                var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (target == mainHwnd)
+                {
+                    uint exStyleSelf = Win32Api.GetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE);
+                    if ((exStyleSelf & Win32Api.WS_EX_LAYERED) != 0)
+                    {
+                        Win32Api.SetWindowLong(mainHwnd, Win32Api.GWL_EXSTYLE, exStyleSelf & ~Win32Api.WS_EX_LAYERED);
+                        Win32Api.SetWindowPos(mainHwnd, IntPtr.Zero, 0, 0, 0, 0,
+                            Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
+                    }
+
+                    if (this.Resources["MainWindowBgBrush"] is System.Windows.Media.SolidColorBrush brush)
+                    {
+                        int currPct = (int)Math.Round(brush.Color.A / 255.0 * 100.0);
+                        int newPct = currPct + deltaPercentage;
+                        if (newPct < 10) newPct = 10;
+                        if (newPct > 100) newPct = 100;
+                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(newPct / 100.0 * 255), 32, 32, 32);
+                    }
+                    return;
+                }
+
                 uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
                 byte currentAlpha = 255;
                 if ((exStyle & Win32Api.WS_EX_LAYERED) != 0)
@@ -300,7 +371,7 @@ namespace SmartWindowTool
                         currentAlpha = bAlpha;
                     }
                 }
-
+                
                 int currentPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
                 int newPercentage = currentPercentage + deltaPercentage;
                 
@@ -478,6 +549,21 @@ namespace SmartWindowTool
             }
         }
 
+        private void SelectProcess_Click(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "可执行文件 (*.exe)|*.exe",
+                Title = "选择要屏蔽的程序"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string fileName = System.IO.Path.GetFileName(openFileDialog.FileName);
+                BlacklistInput.Text = fileName;
+            }
+        }
+
         private void RemoveBlacklist_Click(object sender, RoutedEventArgs e)
         {
             if (sender is System.Windows.Controls.Button element && element.CommandParameter is string processName)
@@ -542,14 +628,21 @@ namespace SmartWindowTool
                 {
                     UseShellExecute = true
                 };
-                Process.Start(processInfo);
-                _isRealExit = true;
-                if (_notifyIcon != null)
+                try
                 {
-                    _notifyIcon.Visible = false;
-                    _notifyIcon.Dispose();
+                    Process.Start(processInfo);
+                    _isRealExit = true;
+                    if (_notifyIcon != null)
+                    {
+                        _notifyIcon.Visible = false;
+                        _notifyIcon.Dispose();
+                    }
+                    Application.Current.Shutdown();
                 }
-                Application.Current.Shutdown();
+                catch
+                {
+                    _viewModel.Settings.RunAsAdmin = true;
+                }
             }
         }
     }

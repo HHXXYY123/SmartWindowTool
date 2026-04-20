@@ -9,6 +9,8 @@ namespace SmartWindowTool.ViewModels
     public class MainViewModel : System.ComponentModel.INotifyPropertyChanged
     {
         public ObservableCollection<HiddenWindowInfo> HiddenWindows { get; } = new ObservableCollection<HiddenWindowInfo>();
+        public ObservableCollection<HiddenWindowInfo> ClickThroughWindows { get; } = new ObservableCollection<HiddenWindowInfo>();
+        public ObservableCollection<HiddenWindowInfo> TransparentWindows { get; } = new ObservableCollection<HiddenWindowInfo>();
         
         // Expose visibility property instead of using converter
         public System.Windows.Visibility HiddenWindowsVisibility => HiddenWindows.Count > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
@@ -126,6 +128,11 @@ namespace SmartWindowTool.ViewModels
 
         public void AddClickThroughWindow(IntPtr hwnd)
         {
+            foreach (var win in ClickThroughWindows)
+            {
+                if (win.Hwnd == hwnd) return;
+            }
+
             var titleBuilder = new StringBuilder(256);
             Win32Api.GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
             
@@ -143,7 +150,34 @@ namespace SmartWindowTool.ViewModels
 
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                HiddenWindows.Add(info);
+                ClickThroughWindows.Add(info);
+            });
+        }
+
+        public void AddTransparentWindow(IntPtr hwnd)
+        {
+            foreach (var win in TransparentWindows)
+            {
+                if (win.Hwnd == hwnd) return;
+            }
+
+            var titleBuilder = new StringBuilder(256);
+            Win32Api.GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
+            
+            var classBuilder = new StringBuilder(256);
+            Win32Api.GetClassName(hwnd, classBuilder, classBuilder.Capacity);
+
+            var info = new HiddenWindowInfo
+            {
+                Hwnd = hwnd,
+                Title = titleBuilder.ToString(),
+                ClassName = classBuilder.ToString(),
+                HiddenAt = DateTime.Now
+            };
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                TransparentWindows.Add(info);
             });
         }
 

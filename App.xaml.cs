@@ -16,6 +16,8 @@ public partial class App : Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        
         // 确保单实例运行，如果发现已有实例，则直接杀死旧进程（覆盖）
         string processName = Process.GetCurrentProcess().ProcessName;
         int currentProcessId = Process.GetCurrentProcess().Id;
@@ -37,6 +39,12 @@ public partial class App : Application
         var settings = AppSettings.Load();
 
         bool isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+
+        // Ensure the setting reflects the actual state if it was launched as admin by other means
+        if (isAdmin)
+        {
+            settings.RunAsAdmin = true;
+        }
 
         if (settings.RunAsAdmin && !isAdmin)
         {

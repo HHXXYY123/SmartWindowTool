@@ -2,6 +2,8 @@ using System;
 using System.Windows.Forms;
 using Gma.System.MouseKeyHook;
 using System.Diagnostics;
+using System.Collections.Generic;
+using SmartWindowTool.Models;
 
 namespace SmartWindowTool.Core
 {
@@ -17,7 +19,7 @@ namespace SmartWindowTool.Core
         private IKeyboardMouseEvents _globalHook;
         private Models.AppSettings _settings;
         
-        // Event triggered when Ctrl + Right Click is pressed
+        // Event triggered when Context Menu is requested
         public event EventHandler<HookEventArgs> OnContextMenuRequested;
         public event EventHandler<WindowAlignment> OnWindowAlignmentRequested;
         public event EventHandler<int> OnWindowTransparencyRequested;
@@ -39,21 +41,115 @@ namespace SmartWindowTool.Core
             _globalHook.MouseWheelExt += GlobalHook_MouseWheelExt;
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+        
+        private const int VK_CONTROL = 0x11;
+        private const int VK_SHIFT = 0x10;
+        private const int VK_MENU = 0x12; // Alt
+        private const int VK_LWIN = 0x5B;
+        private const int VK_RWIN = 0x5C;
+
+        private bool IsKeyPressed(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
+
+        private int GetVkFromKeyName(string keyName)
+        {
+            switch (keyName)
+            {
+                case "Backspace": return 0x08;
+                case "Tab": return 0x09;
+                case "Enter": return 0x0D;
+                case "Pause": return 0x13;
+                case "Caps Lock": return 0x14;
+                case "Esc": return 0x1B;
+                case "Space": return 0x20;
+                case "Page Up": return 0x21;
+                case "Page Down": return 0x22;
+                case "End": return 0x23;
+                case "Home": return 0x24;
+                case "Left Arrow": return 0x25;
+                case "Up Arrow": return 0x26;
+                case "Right Arrow": return 0x27;
+                case "Down Arrow": return 0x28;
+                case "Print Screen": return 0x2C;
+                case "Ins": return 0x2D;
+                case "Del": return 0x2E;
+                case "0": return 0x30; case "1": return 0x31; case "2": return 0x32;
+                case "3": return 0x33; case "4": return 0x34; case "5": return 0x35;
+                case "6": return 0x36; case "7": return 0x37; case "8": return 0x38; case "9": return 0x39;
+                case "A": return 0x41; case "B": return 0x42; case "C": return 0x43; case "D": return 0x44;
+                case "E": return 0x45; case "F": return 0x46; case "G": return 0x47; case "H": return 0x48;
+                case "I": return 0x49; case "J": return 0x4A; case "K": return 0x4B; case "L": return 0x4C;
+                case "M": return 0x4D; case "N": return 0x4E; case "O": return 0x4F; case "P": return 0x50;
+                case "Q": return 0x51; case "R": return 0x52; case "S": return 0x53; case "T": return 0x54;
+                case "U": return 0x55; case "V": return 0x56; case "W": return 0x57; case "X": return 0x58;
+                case "Y": return 0x59; case "Z": return 0x5A;
+                case "F1": return 0x70; case "F2": return 0x71; case "F3": return 0x72; case "F4": return 0x73;
+                case "F5": return 0x74; case "F6": return 0x75; case "F7": return 0x76; case "F8": return 0x77;
+                case "F9": return 0x78; case "F10": return 0x79; case "F11": return 0x7A; case "F12": return 0x7B;
+                default: return 0;
+            }
+        }
+
+        private bool IsHotkeyMatch(HotkeyProfile profile, MouseButtons? mouseButton = null, bool isMouseWheel = false)
+        {
+            if (profile == null || !profile.IsEnabled) return false;
+
+            if (mouseButton.HasValue)
+            {
+                if (profile.MouseButton != mouseButton.Value.ToString() && 
+                    !(profile.MouseButton == "None" && mouseButton.Value == MouseButtons.None))
+                    return false;
+            }
+            else if (!isMouseWheel)
+            {
+                if (profile.MouseButton != "None") return false;
+            }
+
+            var expectedMods = new HashSet<string>();
+            if (profile.Modifier1 != "None") expectedMods.Add(profile.Modifier1);
+            if (profile.Modifier2 != "None") expectedMods.Add(profile.Modifier2);
+            
+            // If no modifiers and no keys are expected, and it's a mouse wheel event, this is an empty hotkey that shouldn't trigger on every wheel scroll
+            if (isMouseWheel && expectedMods.Count == 0 && profile.Key1 == "None" && profile.Key2 == "None")
+            {
+                return false;
+            }
+
+            if (expectedMods.Contains("Ctrl") != IsKeyPressed(VK_CONTROL)) return false;
+            if (expectedMods.Contains("Shift") != IsKeyPressed(VK_SHIFT)) return false;
+            if (expectedMods.Contains("Alt") != IsKeyPressed(VK_MENU)) return false;
+            if (expectedMods.Contains("WinL") != IsKeyPressed(VK_LWIN)) return false;
+            if (expectedMods.Contains("WinR") != IsKeyPressed(VK_RWIN)) return false;
+
+            var expectedKeys = new HashSet<string>();
+            if (profile.Key1 != "None") expectedKeys.Add(profile.Key1);
+            if (profile.Key2 != "None") expectedKeys.Add(profile.Key2);
+
+            foreach (var key in expectedKeys)
+            {
+                int vk = GetVkFromKeyName(key);
+                if (vk != 0 && !IsKeyPressed(vk)) return false;
+            }
+
+            return true;
+        }
+
         private void GlobalHook_MouseWheelExt(object sender, MouseEventExtArgs e)
         {
-            if (_settings.EnableTransparencyWheel && _settings.TransparencyHotkey.IsModifierMatch(GetAsyncKeyState))
+            if (_settings.EnableTransparencyHotkey && IsHotkeyMatch(_settings.TransparencyHotkey, null, true))
             {
                 int delta = e.Delta > 0 ? 10 : -10;
                 OnWindowTransparencyAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
-            else if (_settings.EnableSizeWheel && _settings.HeightHotkey.IsModifierMatch(GetAsyncKeyState))
+            else if (_settings.EnableHeightHotkey && IsHotkeyMatch(_settings.HeightHotkey, null, true))
             {
                 int delta = e.Delta > 0 ? 30 : -30;
                 OnWindowHeightAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
-            else if (_settings.EnableSizeWheel && _settings.WidthHotkey.IsModifierMatch(GetAsyncKeyState))
+            else if (_settings.EnableWidthHotkey && IsHotkeyMatch(_settings.WidthHotkey, null, true))
             {
                 int delta = e.Delta > 0 ? 30 : -30;
                 OnWindowWidthAdjustRequested?.Invoke(this, delta);
@@ -63,133 +159,58 @@ namespace SmartWindowTool.Core
 
         private void GlobalHook_KeyDown(object sender, KeyEventArgs e)
         {
-            // Check if user configured a keyboard-only shortcut
-            var menuHotkey = _settings.MenuHotkey;
-            var requiredButton = menuHotkey.GetParsedMouseButton();
-            var requiredKey = menuHotkey.GetParsedKey();
-
-            if (requiredButton == MouseButtons.None && requiredKey != Keys.None)
+            if (_settings.EnableAltNumpad && IsKeyPressed(VK_MENU) && !IsKeyPressed(VK_CONTROL) && !IsKeyPressed(VK_SHIFT))
             {
-                if (e.KeyCode == requiredKey && menuHotkey.IsModifierMatch(GetAsyncKeyState))
+                if (e.KeyCode >= Keys.NumPad1 && e.KeyCode <= Keys.NumPad9)
                 {
-                    // Trigger menu at current mouse position
-                    var pos = System.Windows.Forms.Cursor.Position;
-                    TriggerContextMenu(pos.X, pos.Y, null);
+                    WindowAlignment alignment = (WindowAlignment)(e.KeyCode - Keys.NumPad0);
+                    OnWindowAlignmentRequested?.Invoke(this, alignment);
                     e.Handled = true;
-                    return;
                 }
             }
-
-            bool isCtrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-            bool isAltDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-
-            // Alt + Numpad (1-9) for Alignment
-            if (_settings.EnableNumpadAlign && isAltDown && !isCtrlDown && e.KeyCode >= Keys.NumPad1 && e.KeyCode <= Keys.NumPad9)
+            else if (_settings.EnableCtrlNumpad && IsKeyPressed(VK_CONTROL) && !IsKeyPressed(VK_MENU) && !IsKeyPressed(VK_SHIFT))
             {
-                WindowAlignment alignment = (WindowAlignment)(e.KeyCode - Keys.NumPad0);
-                OnWindowAlignmentRequested?.Invoke(this, alignment);
-                e.Handled = true;
+                if (e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9)
+                {
+                    int level = e.KeyCode - Keys.NumPad0;
+                    int transparency = level == 0 ? 100 : (100 - (level * 10));
+                    OnWindowTransparencyRequested?.Invoke(this, transparency);
+                    e.Handled = true;
+                }
             }
-            // Ctrl + Numpad (0-9) for Transparency
-            else if (_settings.EnableNumpadMove && isCtrlDown && !isAltDown && e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9)
-            {
-                int level = e.KeyCode - Keys.NumPad0;
-                int transparency = level == 0 ? 100 : (100 - (level * 10));
-                OnWindowTransparencyRequested?.Invoke(this, transparency);
-                e.Handled = true;
-            }
-        }
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-        private const int VK_CONTROL = 0x11;
-        private const int VK_SHIFT = 0x10;
-        private const int VK_MENU = 0x12; // Alt
-
-        private bool IsAnyNonModifierKeyPressed()
-        {
-            // Check A-Z (0x41 - 0x5A)
-            for (int i = 0x41; i <= 0x5A; i++)
-            {
-                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
-            }
-            // Check 0-9 (0x30 - 0x39)
-            for (int i = 0x30; i <= 0x39; i++)
-            {
-                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
-            }
-            // Check F1-F12 (0x70 - 0x7B)
-            for (int i = 0x70; i <= 0x7B; i++)
-            {
-                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
-            }
-            return false;
         }
 
         private void GlobalHook_MouseDownExt(object sender, MouseEventExtArgs e)
         {
-            var requiredButton = _settings.MenuHotkey.GetParsedMouseButton();
-
-            // Ignore simulated clicks (e.g. from Everywhere or other hotkey tools)
-            // By checking if the physical mouse button is actually held down
-            bool isPhysicalButtonDown = false;
-            if (requiredButton == MouseButtons.Right) isPhysicalButtonDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
-            else if (requiredButton == MouseButtons.Left) isPhysicalButtonDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
-            else if (requiredButton == MouseButtons.Middle) isPhysicalButtonDown = (GetAsyncKeyState(0x04) & 0x8000) != 0;
-            else if (requiredButton == MouseButtons.XButton1) isPhysicalButtonDown = (GetAsyncKeyState(0x05) & 0x8000) != 0;
-            else if (requiredButton == MouseButtons.XButton2) isPhysicalButtonDown = (GetAsyncKeyState(0x06) & 0x8000) != 0;
-
-            // Only trigger via mouse if a specific mouse button is actually required
-            if (requiredButton != MouseButtons.None && 
-                e.Button == requiredButton && 
-                isPhysicalButtonDown &&
-                !IsAnyNonModifierKeyPressed() &&
-                _settings.MenuHotkey.IsModifierMatch(GetAsyncKeyState))
+            if (IsHotkeyMatch(_settings.MenuHotkey, e.Button))
             {
-                TriggerContextMenu(e.X, e.Y, e);
-            }
-            else if (requiredButton != MouseButtons.None)
-            {
-                // If it's not the hotkey and we aren't in keyboard-only mode, we trigger the AnyMouseDown event (used to dismiss the menu)
-                OnAnyMouseDown?.Invoke(this, e);
-            }
-            else if (requiredButton == MouseButtons.None)
-            {
-                // In keyboard-only mode, we still need to dismiss the menu when user clicks anywhere
-                OnAnyMouseDown?.Invoke(this, e);
-            }
-        }
-
-        private void TriggerContextMenu(int x, int y, MouseEventExtArgs e = null)
-        {
-            IntPtr target = Win32Api.GetRootWindowFromCursor();
-            if (target != IntPtr.Zero)
-            {
-                Win32Api.GetWindowThreadProcessId(target, out uint processId);
-                try
+                IntPtr target = Win32Api.GetRootWindowFromCursor();
+                if (target != IntPtr.Zero)
                 {
-                    var process = System.Diagnostics.Process.GetProcessById((int)processId);
-                    string procName = process.ProcessName + ".exe";
-                    foreach (var blacklisted in _settings.BlacklistProcesses)
+                    Win32Api.GetWindowThreadProcessId(target, out uint processId);
+                    try
                     {
-                        if (procName.Equals(blacklisted, StringComparison.OrdinalIgnoreCase))
+                        var process = System.Diagnostics.Process.GetProcessById((int)processId);
+                        string procName = process.ProcessName + ".exe";
+                        foreach (var blacklisted in _settings.BlacklistProcesses)
                         {
-                            // Ignore hotkey for blacklisted process
-                            return;
+                            if (procName.Equals(blacklisted, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return; // Ignore blacklisted
+                            }
                         }
                     }
+                    catch { }
                 }
-                catch { }
-            }
 
-            // Prevent the original right click from propagating if triggered by mouse
-            if (e != null)
-            {
                 e.Handled = true;
+                Debug.WriteLine("Custom Hotkey Detected!");
+                OnContextMenuRequested?.Invoke(this, new HookEventArgs(e.X, e.Y));
             }
-            
-            Debug.WriteLine("Custom Hotkey Detected!");
-            OnContextMenuRequested?.Invoke(this, new HookEventArgs(x, y));
+            else
+            {
+                OnAnyMouseDown?.Invoke(this, e);
+            }
         }
 
         public void Stop()
