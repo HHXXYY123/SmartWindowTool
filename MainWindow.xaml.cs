@@ -296,6 +296,11 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
+                    int pct = transparencyPercentage;
+                    if (pct < 10) pct = 10;
+                    if (pct > 100) pct = 100;
+
+                    this.Opacity = pct / 100.0;
                     double opacity = transparencyPercentage / 100.0;
                     if (opacity < 0.1) opacity = 0.1;
                     if (opacity > 1.0) opacity = 1.0;
@@ -340,6 +345,12 @@ namespace SmartWindowTool
                 var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (target == mainHwnd)
                 {
+                    int currentPercentage = (int)Math.Round(this.Opacity * 100);
+                    int newPercentage = currentPercentage + deltaPercentage;
+                    if (newPercentage < 10) newPercentage = 10;
+                    if (newPercentage > 100) newPercentage = 100;
+
+                    this.Opacity = newPercentage / 100.0;
                     int currPct = (int)Math.Round(this.Opacity * 100.0);
                     int newPct = currPct + deltaPercentage;
                     if (newPct < 10) newPct = 10;
