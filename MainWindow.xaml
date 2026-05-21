@@ -14,7 +14,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         
-        <ui:TitleBar Grid.Row="0" Title="Smart Window Tool" />
+        <ui:TitleBar Grid.Row="0" Title="Smart Window Tool" Background="Transparent" />
         
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0" Margin="0" Style="{DynamicResource {x:Type ScrollViewer}}">
             <StackPanel VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="40,20,40,40">
@@ -46,6 +46,7 @@
                         <WrapPanel Margin="0,0,0,20">
                             <CheckBox Content="Alt+小键盘数字 (调整位置/尺寸)" IsChecked="{Binding Settings.EnableAltNumpad}" Margin="0,0,20,10" />
                             <CheckBox Content="Ctrl+小键盘数字 (调整透明度)" IsChecked="{Binding Settings.EnableCtrlNumpad}" Margin="0,0,20,10" />
+                            <CheckBox Content="Ctrl+Alt+方向键 (移动窗口位置)" IsChecked="{Binding Settings.EnablePositionArrowKeys}" Margin="0,0,20,10" />
                         </WrapPanel>
 
                         <TextBlock Text="基本设置" FontWeight="SemiBold" Margin="0,0,0,10"/>

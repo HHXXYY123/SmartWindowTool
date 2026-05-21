@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using SmartWindowTool.Core;
 using SmartWindowTool.Models;
@@ -19,12 +20,12 @@ namespace SmartWindowTool
         public MainWindow()
         {
             InitializeComponent();
-            
+
             _viewModel = new ViewModels.MainViewModel();
             this.DataContext = _viewModel;
 
             _originalBackdropType = this.WindowBackdropType;
-            
+
             // Restore window position if saved
             if (!double.IsNaN(_viewModel.Settings.MainWindowLeft) && !double.IsNaN(_viewModel.Settings.MainWindowTop))
             {
@@ -32,9 +33,21 @@ namespace SmartWindowTool
                 this.Left = _viewModel.Settings.MainWindowLeft;
                 this.Top = _viewModel.Settings.MainWindowTop;
             }
-            
+
+            // 窗口初始化后设置 DWM 暗色模式和拦截白色背景擦除
+            this.SourceInitialized += (s, e) =>
+            {
+                IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                var source = System.Windows.Interop.HwndSource.FromHwnd(hwnd);
+                source.AddHook(WndProc);
+
+                // 启用窗口暗色模式，使 DWM 框架（圆角区域等）使用深色而非白色
+                int useDarkMode = 1;
+                Win32Api.DwmSetWindowAttribute(hwnd, Win32Api.DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDarkMode, sizeof(int));
+            };
+
             _floatingMenu = new FloatingMenuWindow(_viewModel);
-            
+
             _hookService = new HookService(_viewModel.Settings);
             _hookService.OnContextMenuRequested += OnContextMenuRequested;
             _hookService.OnWindowAlignmentRequested += OnWindowAlignmentRequested;
@@ -43,11 +56,24 @@ namespace SmartWindowTool
             _hookService.OnWindowHeightAdjustRequested += OnWindowHeightAdjustRequested;
             _hookService.OnWindowWidthAdjustRequested += OnWindowWidthAdjustRequested;
             _hookService.OnAnyMouseDown += OnAnyMouseDown;
+            _hookService.OnWindowPositionMoveRequested += OnWindowPositionMoveRequested;
             _hookService.Start();
             
             this.Closing += MainWindow_Closing;
             
             InitializeTrayIcon();
+        }
+
+        // 拦截系统擦除窗口背景的消息，防止 DWM 画白色底色
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int WM_ERASEBKGND = 0x0014;
+            if (msg == WM_ERASEBKGND)
+            {
+                handled = true;
+                return (IntPtr)1;
+            }
+            return IntPtr.Zero;
         }
 
         private void InitializeTrayIcon()
@@ -79,36 +105,51 @@ namespace SmartWindowTool
         private void ShowWpfTrayMenu()
         {
             var contextMenu = new System.Windows.Controls.ContextMenu();
-            
+
             // Apply application resources to the ContextMenu so it inherits Wpf.Ui styles
             if (Application.Current.Resources.MergedDictionaries.Count > 0)
             {
                 contextMenu.Resources.MergedDictionaries.Add(Application.Current.Resources.MergedDictionaries[0]);
             }
             contextMenu.SetResourceReference(FrameworkElement.StyleProperty, typeof(System.Windows.Controls.ContextMenu));
-            
+
             var showItem = new System.Windows.Controls.MenuItem { Header = "显示主界面" };
             showItem.Click += (s, e) => ShowMainWindow();
             contextMenu.Items.Add(showItem);
-            
-            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出程序" };
-            exitItem.Click += (s, e) => ExitApp_Click(null, null);
-            
+
+            // ---- 恢复隐藏/最小化到托盘的窗口 ----
             if (_viewModel.HiddenWindows.Count > 0)
             {
                 contextMenu.Items.Add(new System.Windows.Controls.Separator());
-                var restoreMenu = new System.Windows.Controls.MenuItem { Header = "恢复" };
-                
+                var restoreMenu = new System.Windows.Controls.MenuItem { Header = $"恢复隐藏窗口 ({_viewModel.HiddenWindows.Count})" };
+
                 foreach (var hiddenWin in _viewModel.HiddenWindows)
                 {
                     var item = new System.Windows.Controls.MenuItem { Header = hiddenWin.DisplayText };
-                    item.Click += (s, e) => RestoreWindow(hiddenWin);
+                    item.Click += (s, e) => _viewModel.RestoreWindowFromViewModel(hiddenWin);
                     restoreMenu.Items.Add(item);
                 }
                 contextMenu.Items.Add(restoreMenu);
             }
 
+            // ---- 恢复鼠标穿透窗口 ----
+            if (_viewModel.ClickThroughWindows.Count > 0)
+            {
+                contextMenu.Items.Add(new System.Windows.Controls.Separator());
+                var ctMenu = new System.Windows.Controls.MenuItem { Header = $"恢复鼠标穿透窗口 ({_viewModel.ClickThroughWindows.Count})" };
+
+                foreach (var ctWin in _viewModel.ClickThroughWindows)
+                {
+                    var item = new System.Windows.Controls.MenuItem { Header = ctWin.DisplayText };
+                    item.Click += (s, e) => _viewModel.RestoreWindowFromViewModel(ctWin);
+                    ctMenu.Items.Add(item);
+                }
+                contextMenu.Items.Add(ctMenu);
+            }
+
             contextMenu.Items.Add(new System.Windows.Controls.Separator());
+            var exitItem = new System.Windows.Controls.MenuItem { Header = "退出程序" };
+            exitItem.Click += (s, e) => ExitApp_Click(null, null);
             contextMenu.Items.Add(exitItem);
 
             // Create a dummy hidden window to host the ContextMenu so it styles correctly and closes on click-away
@@ -285,37 +326,70 @@ namespace SmartWindowTool
             Application.Current.Dispatcher.Invoke(() =>
             {
                 IntPtr target = Win32Api.GetRootWindowFromCursor();
+                if (target == IntPtr.Zero)
+                {
+                    target = Win32Api.GetForegroundWindow();
+                }
                 if (target == IntPtr.Zero) return;
 
+                int pct = transparencyPercentage;
+                if (pct < 10) pct = 10;
+                if (pct > 100) pct = 100;
+
+                // 检查是否是自己的窗口
                 Win32Api.GetWindowThreadProcessId(target, out uint pid);
                 if (pid == (uint)Process.GetCurrentProcess().Id)
                 {
-                    target = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                }
+                    // 使用 WPF Window.Opacity（同步 Win32 层状态确保正确渲染）
+                    Window foundWindow = Application.Current.Windows.Cast<Window>()
+                        .FirstOrDefault(w => new System.Windows.Interop.WindowInteropHelper(w).Handle == target);
 
-                var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                if (target == mainHwnd)
-                {
-                    int pct = transparencyPercentage;
-                    if (pct < 10) pct = 10;
-                    if (pct > 100) pct = 100;
-
-                    if (RootGrid.Background is System.Windows.Media.SolidColorBrush brush)
+                    if (foundWindow != null)
                     {
-                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(pct / 100.0 * 255), 32, 32, 32);
+                        foundWindow.Opacity = pct / 100.0;
+                        // 同步设置 Win32 层叠窗口样式，保证 DWM 层面正确透明回写
+                        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(foundWindow).Handle;
+                        uint exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
+                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
+                        {
+                            Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+                            Win32Api.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
+                        }
+                        byte alpha = (byte)(pct / 100.0 * 255);
+                        Win32Api.SetLayeredWindowAttributes(hwnd, 0, alpha, Win32Api.LWA_ALPHA);
+                        return;
                     }
-                    return;
+                    else
+                    {
+                        // Win32 API 回退
+                        byte alpha = (byte)(pct / 100.0 * 255);
+                        uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
+                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
+                        {
+                            Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+                            Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, 0, 0,
+                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
+                        }
+                        Win32Api.SetLayeredWindowAttributes(target, 0, alpha, Win32Api.LWA_ALPHA);
+                        Win32Api.InvalidateRect(target, IntPtr.Zero, false);
+                        Win32Api.UpdateWindow(target);
+                        int cornerPref = Win32Api.DWMWCP_ROUND;
+                        Win32Api.DwmSetWindowAttribute(target, Win32Api.DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPref, sizeof(int));
+                        return;
+                    }
                 }
 
-                byte alpha = (byte)(transparencyPercentage / 100.0 * 255);
-                
-                uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
-                if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
+                // 其他程序的窗口，使用 Win32 API
+                byte alpha2 = (byte)(pct / 100.0 * 255);
+                uint exStyle2 = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
+                if ((exStyle2 & Win32Api.WS_EX_LAYERED) == 0)
                 {
-                    Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+                    Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle2 | Win32Api.WS_EX_LAYERED);
                 }
-
-                Win32Api.SetLayeredWindowAttributes(target, 0, alpha, Win32Api.LWA_ALPHA);
+                Win32Api.SetLayeredWindowAttributes(target, 0, alpha2, Win32Api.LWA_ALPHA);
+                Win32Api.InvalidateRect(target, IntPtr.Zero, false);
+                Win32Api.UpdateWindow(target);
             });
         }
 
@@ -324,53 +398,98 @@ namespace SmartWindowTool
             Application.Current.Dispatcher.Invoke(() =>
             {
                 IntPtr target = Win32Api.GetRootWindowFromCursor();
+                if (target == IntPtr.Zero)
+                {
+                    target = Win32Api.GetForegroundWindow();
+                }
                 if (target == IntPtr.Zero) return;
 
+                // 检查是否是自己的窗口
                 Win32Api.GetWindowThreadProcessId(target, out uint pid);
                 if (pid == (uint)Process.GetCurrentProcess().Id)
                 {
-                    target = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                }
+                    // 使用 WPF Window.Opacity（同步 Win32 层状态确保正确渲染）
+                    Window foundWindow = Application.Current.Windows.Cast<Window>()
+                        .FirstOrDefault(w => new System.Windows.Interop.WindowInteropHelper(w).Handle == target);
 
-                var mainHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                if (target == mainHwnd)
-                {
-                    if (RootGrid.Background is System.Windows.Media.SolidColorBrush brush)
+                    if (foundWindow != null)
                     {
-                        int currPct = (int)Math.Round(brush.Color.A / 255.0 * 100.0);
+                        int currPct = (int)Math.Round(foundWindow.Opacity * 100);
                         int newPct = currPct + deltaPercentage;
                         if (newPct < 10) newPct = 10;
                         if (newPct > 100) newPct = 100;
-
-                        brush.Color = System.Windows.Media.Color.FromArgb((byte)(newPct / 100.0 * 255), 32, 32, 32);
+                        foundWindow.Opacity = newPct / 100.0;
+                        // 同步设置 Win32 层叠窗口样式
+                        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(foundWindow).Handle;
+                        uint exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
+                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
+                        {
+                            Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+                            Win32Api.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
+                        }
+                        byte alpha = (byte)(newPct / 100.0 * 255);
+                        Win32Api.SetLayeredWindowAttributes(hwnd, 0, alpha, Win32Api.LWA_ALPHA);
+                        return;
                     }
-                    return;
+                    else
+                    {
+                        // Win32 API 回退
+                        uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
+                        byte currentAlpha = 255;
+                        if ((exStyle & Win32Api.WS_EX_LAYERED) != 0)
+                        {
+                            if (Win32Api.GetLayeredWindowAttributes(target, out uint _, out byte bAlpha, out uint _))
+                            {
+                                currentAlpha = bAlpha;
+                            }
+                        }
+
+                        int targetPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
+                        int adjustedPercentage = targetPercentage + deltaPercentage;
+                        if (adjustedPercentage < 10) adjustedPercentage = 10;
+                        if (adjustedPercentage > 100) adjustedPercentage = 100;
+                        byte newAlpha = (byte)(adjustedPercentage / 100.0 * 255);
+
+                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
+                        {
+                            Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+                            Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, 0, 0,
+                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
+                        }
+                        Win32Api.SetLayeredWindowAttributes(target, 0, newAlpha, Win32Api.LWA_ALPHA);
+                        Win32Api.InvalidateRect(target, IntPtr.Zero, false);
+                        Win32Api.UpdateWindow(target);
+                        int cornerPref = Win32Api.DWMWCP_ROUND;
+                        Win32Api.DwmSetWindowAttribute(target, Win32Api.DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPref, sizeof(int));
+                        return;
+                    }
                 }
 
-                uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
-                byte currentAlpha = 255;
-                if ((exStyle & Win32Api.WS_EX_LAYERED) != 0)
+                // 其他程序的窗口，使用 Win32 API
+                uint exStyle2 = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
+                byte currentAlpha2 = 255;
+                if ((exStyle2 & Win32Api.WS_EX_LAYERED) != 0)
                 {
                     if (Win32Api.GetLayeredWindowAttributes(target, out uint _, out byte bAlpha, out uint _))
                     {
-                        currentAlpha = bAlpha;
+                        currentAlpha2 = bAlpha;
                     }
                 }
-                
-                int targetPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
-                int adjustedPercentage = targetPercentage + deltaPercentage;
-                
-                if (adjustedPercentage < 10) adjustedPercentage = 10;
-                if (adjustedPercentage > 100) adjustedPercentage = 100;
 
-                byte newAlpha = (byte)(adjustedPercentage / 100.0 * 255);
-                
-                if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
+                int targetPercentage2 = (int)Math.Round(currentAlpha2 / 255.0 * 100.0);
+                int adjustedPercentage2 = targetPercentage2 + deltaPercentage;
+                if (adjustedPercentage2 < 10) adjustedPercentage2 = 10;
+                if (adjustedPercentage2 > 100) adjustedPercentage2 = 100;
+                byte newAlpha2 = (byte)(adjustedPercentage2 / 100.0 * 255);
+
+                if ((exStyle2 & Win32Api.WS_EX_LAYERED) == 0)
                 {
-                    Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+                    Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle2 | Win32Api.WS_EX_LAYERED);
                 }
-
-                Win32Api.SetLayeredWindowAttributes(target, 0, newAlpha, Win32Api.LWA_ALPHA);
+                Win32Api.SetLayeredWindowAttributes(target, 0, newAlpha2, Win32Api.LWA_ALPHA);
+                Win32Api.InvalidateRect(target, IntPtr.Zero, false);
+                Win32Api.UpdateWindow(target);
             });
         }
 
@@ -405,9 +524,27 @@ namespace SmartWindowTool
                     int width = rect.Right - rect.Left + delta;
                     int height = rect.Bottom - rect.Top;
                     if (width < 100) width = 100; // Minimum width
-                    
-                    Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, width, height, 
+
+                    Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, width, height,
                         Win32Api.SWP_NOMOVE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
+                }
+            });
+        }
+
+        private void OnWindowPositionMoveRequested(object sender, (int DeltaX, int DeltaY) e)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                IntPtr target = Win32Api.GetRootWindowFromCursor();
+                if (target == IntPtr.Zero) return;
+
+                if (Win32Api.GetWindowRect(target, out Win32Api.RECT rect))
+                {
+                    int newX = rect.Left + e.DeltaX;
+                    int newY = rect.Top + e.DeltaY;
+
+                    Win32Api.SetWindowPos(target, IntPtr.Zero, newX, newY, 0, 0,
+                        Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
                 }
             });
         }
@@ -490,7 +627,7 @@ namespace SmartWindowTool
         {
             _hookService.Stop();
             _floatingMenu.Close();
-            
+
             // Restore all hidden/click-through windows before exiting to prevent them from being lost
             foreach (var hw in _viewModel.HiddenWindows)
             {
@@ -504,7 +641,14 @@ namespace SmartWindowTool
                     Win32Api.ShowWindow(hw.Hwnd, Win32Api.SW_SHOW);
                 }
             }
-            
+
+            // Also restore click-through windows that weren't in HiddenWindows
+            foreach (var hw in _viewModel.ClickThroughWindows)
+            {
+                uint exStyle = Win32Api.GetWindowLong(hw.Hwnd, Win32Api.GWL_EXSTYLE);
+                Win32Api.SetWindowLong(hw.Hwnd, Win32Api.GWL_EXSTYLE, exStyle & ~Win32Api.WS_EX_TRANSPARENT);
+            }
+
             base.OnClosed(e);
         }
 

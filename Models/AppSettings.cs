@@ -18,7 +18,8 @@ namespace SmartWindowTool.Models
         private bool _enableTransparencyHotkey = true;
         private bool _enableWidthHotkey = true;
         private bool _enableHeightHotkey = true;
-        
+        private bool _enablePositionArrowKeys = true;
+
         public double MainWindowLeft { get; set; } = double.NaN;
         public double MainWindowTop { get; set; } = double.NaN;
         
@@ -58,6 +59,12 @@ namespace SmartWindowTool.Models
         {
             get => _enableHeightHotkey;
             set { _enableHeightHotkey = value; OnPropertyChanged(); }
+        }
+
+        public bool EnablePositionArrowKeys
+        {
+            get => _enablePositionArrowKeys;
+            set { _enablePositionArrowKeys = value; OnPropertyChanged(); }
         }
 
         public bool SilentStart
@@ -123,6 +130,7 @@ namespace SmartWindowTool.Models
             TransparencyHotkey.PropertyChanged += (s, e) => Save();
             WidthHotkey.PropertyChanged += (s, e) => Save();
             HeightHotkey.PropertyChanged += (s, e) => Save();
+            // EnablePositionArrowKeys is a simple bool, auto-saves via OnPropertyChanged
         }
 
         public void EnsureDefaultSizes()

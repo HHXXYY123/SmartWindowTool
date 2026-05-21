@@ -114,16 +114,24 @@ namespace SmartWindowTool.ViewModels
                 exStyle &= ~Win32Api.WS_EX_TRANSPARENT;
                 Win32Api.SetWindowLong(info.Hwnd, Win32Api.GWL_EXSTYLE, exStyle);
             }
-            
+
             if (info.IsTray || !info.IsClickThrough)
             {
                 Win32Api.ShowWindow(info.Hwnd, Win32Api.SW_SHOW);
-                Win32Api.SetWindowPos(info.Hwnd, IntPtr.Zero, 0, 0, 0, 0, 
+                Win32Api.SetWindowPos(info.Hwnd, IntPtr.Zero, 0, 0, 0, 0,
                     Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
                 Win32Api.SetForegroundWindow(info.Hwnd);
             }
-            
-            RemoveHiddenWindow(info);
+
+            // 根据窗口类型从正确的集合中移除
+            if (info.IsClickThrough)
+            {
+                RemoveClickThroughWindow(info);
+            }
+            else
+            {
+                RemoveHiddenWindow(info);
+            }
         }
 
         public void AddClickThroughWindow(IntPtr hwnd)
@@ -193,6 +201,22 @@ namespace SmartWindowTool.ViewModels
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 HiddenWindows.Remove(info);
+            });
+        }
+
+        public void RemoveClickThroughWindow(HiddenWindowInfo info)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                ClickThroughWindows.Remove(info);
+            });
+        }
+
+        public void RemoveTransparentWindow(HiddenWindowInfo info)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                TransparentWindows.Remove(info);
             });
         }
 

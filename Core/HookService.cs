@@ -26,6 +26,7 @@ namespace SmartWindowTool.Core
         public event EventHandler<int> OnWindowTransparencyAdjustRequested;
         public event EventHandler<int> OnWindowHeightAdjustRequested;
         public event EventHandler<int> OnWindowWidthAdjustRequested;
+        public event EventHandler<(int DeltaX, int DeltaY)> OnWindowPositionMoveRequested;
         public event EventHandler<MouseEventExtArgs> OnAnyMouseDown;
 
         public HookService(Models.AppSettings settings)
@@ -175,6 +176,22 @@ namespace SmartWindowTool.Core
                     int level = e.KeyCode - Keys.NumPad0;
                     int transparency = level == 0 ? 100 : (100 - (level * 10));
                     OnWindowTransparencyRequested?.Invoke(this, transparency);
+                    e.Handled = true;
+                }
+            }
+            else if (_settings.EnablePositionArrowKeys && IsKeyPressed(VK_CONTROL) && IsKeyPressed(VK_MENU) && !IsKeyPressed(VK_SHIFT))
+            {
+                int dx = 0, dy = 0;
+                switch (e.KeyCode)
+                {
+                    case Keys.Left: dx = -15; break;
+                    case Keys.Up: dy = -15; break;
+                    case Keys.Right: dx = 15; break;
+                    case Keys.Down: dy = 15; break;
+                }
+                if (dx != 0 || dy != 0)
+                {
+                    OnWindowPositionMoveRequested?.Invoke(this, (dx, dy));
                     e.Handled = true;
                 }
             }

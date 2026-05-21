@@ -67,6 +67,12 @@ namespace SmartWindowTool.Core
         [DllImport("user32.dll")]
         public static extern bool GetLayeredWindowAttributes(IntPtr hwnd, out uint pcrKey, out byte pbAlpha, out uint pdwFlags);
 
+        [DllImport("user32.dll")]
+        public static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+        [DllImport("user32.dll")]
+        public static extern bool UpdateWindow(IntPtr hWnd);
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool PrintWindow(IntPtr hwnd, IntPtr hDC, uint nFlags);
 
@@ -172,5 +178,46 @@ namespace SmartWindowTool.Core
 
         public const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
         public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+        public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        public const int DWMWCP_DEFAULT = 0;
+        public const int DWMWCP_DONOTROUND = 1;
+        public const int DWMWCP_ROUND = 2;
+        public const int DWMWCP_ROUNDSMALL = 3;
+
+        // --- SetWindowCompositionAttribute (Win10+ 透明效果) ---
+        [DllImport("user32.dll")]
+        public static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WINDOWCOMPOSITIONATTRIBDATA data);
+
+        public enum WCA : int
+        {
+            WCA_ACCENT_POLICY = 19
+        }
+
+        public enum ACCENT_STATE
+        {
+            ACCENT_DISABLED = 0,
+            ACCENT_ENABLE_GRADIENT = 1,
+            ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
+            ACCENT_ENABLE_BLURBEHIND = 3,
+            ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
+            ACCENT_ENABLE_HOSTBACKDROP = 5,
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ACCENTPOLICY
+        {
+            public ACCENT_STATE AccentState;
+            public uint AccentFlags;
+            public uint GradientColor;
+            public uint AnimationId;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct WINDOWCOMPOSITIONATTRIBDATA
+        {
+            public WCA Attribute;
+            public IntPtr Data;
+            public int SizeOfData;
+        }
     }
 }
