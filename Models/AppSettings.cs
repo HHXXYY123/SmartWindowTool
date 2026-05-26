@@ -19,6 +19,7 @@ namespace SmartWindowTool.Models
         private bool _enableWidthHotkey = true;
         private bool _enableHeightHotkey = true;
         private bool _enablePositionArrowKeys = true;
+        private bool _ignoreTaskbar = false;
 
         public double MainWindowLeft { get; set; } = double.NaN;
         public double MainWindowTop { get; set; } = double.NaN;
@@ -65,6 +66,12 @@ namespace SmartWindowTool.Models
         {
             get => _enablePositionArrowKeys;
             set { _enablePositionArrowKeys = value; OnPropertyChanged(); }
+        }
+
+        public bool IgnoreTaskbar
+        {
+            get => _ignoreTaskbar;
+            set { _ignoreTaskbar = value; OnPropertyChanged(); }
         }
 
         public bool SilentStart

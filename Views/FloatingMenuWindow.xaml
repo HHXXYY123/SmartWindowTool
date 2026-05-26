@@ -86,6 +86,7 @@
             <ui:Button Content="显示主界面" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="ShowMainWindow_Click" />
             <ui:Button Content="隐藏窗口" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="HideWindow_Click" />
             <ui:Button Content="最小化到托盘" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="MinimizeToTray_Click" />
+            <CheckBox Content="忽略任务栏" Margin="5,3,0,3" IsChecked="{Binding Settings.IgnoreTaskbar}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <Separator Margin="0,2"/>
             <ui:Button Content="关闭菜单" HorizontalAlignment="Stretch" Margin="0,1" Padding="5,2" MinHeight="24" Click="CloseMenu_Click" Appearance="Danger" />
         </StackPanel>

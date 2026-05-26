@@ -54,6 +54,7 @@
                             <CheckBox Content="开机自启动" IsChecked="{Binding Settings.AutoStart}" Margin="0,0,20,10"/>
                             <CheckBox Content="静默启动 (仅托盘)" IsChecked="{Binding Settings.SilentStart}" Margin="0,0,20,10"/>
                             <CheckBox Content="管理员权限 (支持游戏)" IsChecked="{Binding Settings.RunAsAdmin}" Click="RunAsAdmin_Click" Margin="0,0,20,10"/>
+                            <CheckBox Content="忽略任务栏 (以屏幕边缘为基准)" IsChecked="{Binding Settings.IgnoreTaskbar}" Margin="0,0,20,10"/>
                         </WrapPanel>
                         
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">

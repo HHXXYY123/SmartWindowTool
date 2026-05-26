@@ -86,6 +86,11 @@ namespace SmartWindowTool.Views
             return false;
         }
 
+        private System.Drawing.Rectangle GetEffectiveArea(System.Windows.Forms.Screen screen)
+        {
+            return _viewModel.Settings.IgnoreTaskbar ? screen.Bounds : screen.WorkingArea;
+        }
+
         public void AdjustPositionToScreen()
         {
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
@@ -94,10 +99,10 @@ namespace SmartWindowTool.Views
                 var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(rect.Left, rect.Top));
                 
                 var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
-                double logicalScreenHeight = screen.WorkingArea.Height / dpi.DpiScaleY;
-                double logicalScreenTop = screen.WorkingArea.Top / dpi.DpiScaleY;
-                double logicalScreenWidth = screen.WorkingArea.Width / dpi.DpiScaleX;
-                double logicalScreenLeft = screen.WorkingArea.Left / dpi.DpiScaleX;
+                double logicalScreenHeight = GetEffectiveArea(screen).Height / dpi.DpiScaleY;
+                double logicalScreenTop = GetEffectiveArea(screen).Top / dpi.DpiScaleY;
+                double logicalScreenWidth = GetEffectiveArea(screen).Width / dpi.DpiScaleX;
+                double logicalScreenLeft = GetEffectiveArea(screen).Left / dpi.DpiScaleX;
 
                 bool changed = false;
                 double newTop = this.Top;
@@ -491,8 +496,8 @@ namespace SmartWindowTool.Views
                     // Use WinForms Screen to get the physical bounds of the monitor the window is currently on
                     var screen = System.Windows.Forms.Screen.FromHandle(TargetWindowHwnd);
                     
-                    int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - width) / 2;
-                    int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - height) / 2;
+                    int x = GetEffectiveArea(screen).Left + (GetEffectiveArea(screen).Width - width) / 2;
+                    int y = GetEffectiveArea(screen).Top + (GetEffectiveArea(screen).Height - height) / 2;
 
                     Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, x, y, 0, 0, 
                         Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
@@ -547,16 +552,16 @@ namespace SmartWindowTool.Views
                             int width = rect.Right - rect.Left;
                             int height = rect.Bottom - rect.Top;
                             
-                            double relX = (double)(rect.Left - currentScreen.WorkingArea.Left) / currentScreen.WorkingArea.Width;
-                            double relY = (double)(rect.Top - currentScreen.WorkingArea.Top) / currentScreen.WorkingArea.Height;
+                            double relX = (double)(rect.Left - GetEffectiveArea(currentScreen).Left) / GetEffectiveArea(currentScreen).Width;
+                            double relY = (double)(rect.Top - GetEffectiveArea(currentScreen).Top) / GetEffectiveArea(currentScreen).Height;
 
-                            int newX = nextScreen.WorkingArea.Left + (int)(relX * nextScreen.WorkingArea.Width);
-                            int newY = nextScreen.WorkingArea.Top + (int)(relY * nextScreen.WorkingArea.Height);
+                            int newX = GetEffectiveArea(nextScreen).Left + (int)(relX * GetEffectiveArea(nextScreen).Width);
+                            int newY = GetEffectiveArea(nextScreen).Top + (int)(relY * GetEffectiveArea(nextScreen).Height);
 
-                            if (newX + width > nextScreen.WorkingArea.Right) newX = nextScreen.WorkingArea.Right - width;
-                            if (newY + height > nextScreen.WorkingArea.Bottom) newY = nextScreen.WorkingArea.Bottom - height;
-                            if (newX < nextScreen.WorkingArea.Left) newX = nextScreen.WorkingArea.Left;
-                            if (newY < nextScreen.WorkingArea.Top) newY = nextScreen.WorkingArea.Top;
+                            if (newX + width > GetEffectiveArea(nextScreen).Right) newX = GetEffectiveArea(nextScreen).Right - width;
+                            if (newY + height > GetEffectiveArea(nextScreen).Bottom) newY = GetEffectiveArea(nextScreen).Bottom - height;
+                            if (newX < GetEffectiveArea(nextScreen).Left) newX = GetEffectiveArea(nextScreen).Left;
+                            if (newY < GetEffectiveArea(nextScreen).Top) newY = GetEffectiveArea(nextScreen).Top;
 
                             Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, newX, newY, width, height, 
                                 Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
@@ -578,10 +583,10 @@ namespace SmartWindowTool.Views
                     
                     var screen = System.Windows.Forms.Screen.FromHandle(TargetWindowHwnd);
                     
-                    int distLeft = Math.Abs(rect.Left - screen.WorkingArea.Left);
-                    int distRight = Math.Abs(rect.Right - screen.WorkingArea.Right);
-                    int distTop = Math.Abs(rect.Top - screen.WorkingArea.Top);
-                    int distBottom = Math.Abs(rect.Bottom - screen.WorkingArea.Bottom);
+                    int distLeft = Math.Abs(rect.Left - GetEffectiveArea(screen).Left);
+                    int distRight = Math.Abs(rect.Right - GetEffectiveArea(screen).Right);
+                    int distTop = Math.Abs(rect.Top - GetEffectiveArea(screen).Top);
+                    int distBottom = Math.Abs(rect.Bottom - GetEffectiveArea(screen).Bottom);
 
                     int minX = Math.Min(distLeft, distRight);
                     int minY = Math.Min(distTop, distBottom);
@@ -592,11 +597,11 @@ namespace SmartWindowTool.Views
                     // Snap horizontally if closer to horizontal edge
                     if (minX < minY)
                     {
-                        newX = distLeft < distRight ? screen.WorkingArea.Left : screen.WorkingArea.Right - width;
+                        newX = distLeft < distRight ? GetEffectiveArea(screen).Left : GetEffectiveArea(screen).Right - width;
                     }
                     else
                     {
-                        newY = distTop < distBottom ? screen.WorkingArea.Top : screen.WorkingArea.Bottom - height;
+                        newY = distTop < distBottom ? GetEffectiveArea(screen).Top : GetEffectiveArea(screen).Bottom - height;
                     }
 
                     Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, newX, newY, 0, 0, 

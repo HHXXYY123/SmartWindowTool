@@ -259,6 +259,11 @@ namespace SmartWindowTool
             });
         }
 
+        private System.Drawing.Rectangle GetEffectiveArea(System.Windows.Forms.Screen screen)
+        {
+            return _viewModel.Settings.IgnoreTaskbar ? screen.Bounds : screen.WorkingArea;
+        }
+
         private void OnWindowAlignmentRequested(object sender, WindowAlignment alignment)
         {
             Application.Current.Dispatcher.Invoke(() =>
@@ -278,40 +283,40 @@ namespace SmartWindowTool
                     switch (alignment)
                     {
                         case WindowAlignment.TopLeft:
-                            x = screen.WorkingArea.Left;
-                            y = screen.WorkingArea.Top;
+                            x = GetEffectiveArea(screen).Left;
+                            y = GetEffectiveArea(screen).Top;
                             break;
                         case WindowAlignment.TopCenter:
-                            x = screen.WorkingArea.Left + (screen.WorkingArea.Width - width) / 2;
-                            y = screen.WorkingArea.Top;
+                            x = GetEffectiveArea(screen).Left + (GetEffectiveArea(screen).Width - width) / 2;
+                            y = GetEffectiveArea(screen).Top;
                             break;
                         case WindowAlignment.TopRight:
-                            x = screen.WorkingArea.Right - width;
-                            y = screen.WorkingArea.Top;
+                            x = GetEffectiveArea(screen).Right - width;
+                            y = GetEffectiveArea(screen).Top;
                             break;
                         case WindowAlignment.MiddleLeft:
-                            x = screen.WorkingArea.Left;
-                            y = screen.WorkingArea.Top + (screen.WorkingArea.Height - height) / 2;
+                            x = GetEffectiveArea(screen).Left;
+                            y = GetEffectiveArea(screen).Top + (GetEffectiveArea(screen).Height - height) / 2;
                             break;
                         case WindowAlignment.Center:
-                            x = screen.WorkingArea.Left + (screen.WorkingArea.Width - width) / 2;
-                            y = screen.WorkingArea.Top + (screen.WorkingArea.Height - height) / 2;
+                            x = GetEffectiveArea(screen).Left + (GetEffectiveArea(screen).Width - width) / 2;
+                            y = GetEffectiveArea(screen).Top + (GetEffectiveArea(screen).Height - height) / 2;
                             break;
                         case WindowAlignment.MiddleRight:
-                            x = screen.WorkingArea.Right - width;
-                            y = screen.WorkingArea.Top + (screen.WorkingArea.Height - height) / 2;
+                            x = GetEffectiveArea(screen).Right - width;
+                            y = GetEffectiveArea(screen).Top + (GetEffectiveArea(screen).Height - height) / 2;
                             break;
                         case WindowAlignment.BottomLeft:
-                            x = screen.WorkingArea.Left;
-                            y = screen.WorkingArea.Bottom - height;
+                            x = GetEffectiveArea(screen).Left;
+                            y = GetEffectiveArea(screen).Bottom - height;
                             break;
                         case WindowAlignment.BottomCenter:
-                            x = screen.WorkingArea.Left + (screen.WorkingArea.Width - width) / 2;
-                            y = screen.WorkingArea.Bottom - height;
+                            x = GetEffectiveArea(screen).Left + (GetEffectiveArea(screen).Width - width) / 2;
+                            y = GetEffectiveArea(screen).Bottom - height;
                             break;
                         case WindowAlignment.BottomRight:
-                            x = screen.WorkingArea.Right - width;
-                            y = screen.WorkingArea.Bottom - height;
+                            x = GetEffectiveArea(screen).Right - width;
+                            y = GetEffectiveArea(screen).Bottom - height;
                             break;
                     }
 
@@ -587,11 +592,11 @@ namespace SmartWindowTool
                     // Reposition menu if it goes out of screen bounds
                     var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(e.MouseX, e.MouseY));
                     
-                    // Use WorkingArea instead of Bounds to account for taskbar
-                    double logicalScreenWidth = screen.WorkingArea.Width / dpi.DpiScaleX;
-                    double logicalScreenHeight = screen.WorkingArea.Height / dpi.DpiScaleY;
-                    double logicalScreenLeft = screen.WorkingArea.Left / dpi.DpiScaleX;
-                    double logicalScreenTop = screen.WorkingArea.Top / dpi.DpiScaleY;
+                    // Use effective area (taskbar-aware or full screen based on setting)
+                    double logicalScreenWidth = GetEffectiveArea(screen).Width / dpi.DpiScaleX;
+                    double logicalScreenHeight = GetEffectiveArea(screen).Height / dpi.DpiScaleY;
+                    double logicalScreenLeft = GetEffectiveArea(screen).Left / dpi.DpiScaleX;
+                    double logicalScreenTop = GetEffectiveArea(screen).Top / dpi.DpiScaleY;
 
                     double finalLeft = logicalMouseX;
                     double finalTop = logicalMouseY;
