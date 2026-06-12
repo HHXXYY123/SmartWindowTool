@@ -86,7 +86,7 @@ namespace SmartWindowTool.Models
             set 
             { 
                 _autoStart = value; 
-                UpdateAutoStartRegistry(value);
+                UpdateAutoStart(value);
                 OnPropertyChanged(); 
             }
         }
@@ -97,32 +97,51 @@ namespace SmartWindowTool.Models
             set { _runAsAdmin = value; OnPropertyChanged(); }
         }
 
-        private void UpdateAutoStartRegistry(bool enable)
+        private void UpdateAutoStart(bool enable)
         {
             if (!_isLoaded) return;
+            const string taskName = "SmartWindowTool";
+            const string registryRunKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
             try
             {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-                if (key != null)
+                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                if (string.IsNullOrEmpty(exePath)) return;
+
+                // 清理旧版注册表自启残留，避免双启
+                try
                 {
-                    string appName = "SmartWindowTool";
-                    if (enable)
+                    using var regKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(registryRunKey, true);
+                    regKey?.DeleteValue(taskName, false);
+                }
+                catch { }
+
+                if (enable)
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe",
+                        $"/Create /TN \"{taskName}\" /TR \"\\\"{exePath}\\\"\" /SC ONLOGON /RL HIGHEST /F")
                     {
-                        string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
-                        if (!string.IsNullOrEmpty(exePath))
-                        {
-                            key.SetValue(appName, $"\"{exePath}\"");
-                        }
-                    }
-                    else
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardError = true
+                    };
+                    using var proc = System.Diagnostics.Process.Start(psi);
+                    proc?.WaitForExit();
+                }
+                else
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe",
+                        $"/Delete /TN \"{taskName}\" /F")
                     {
-                        key.DeleteValue(appName, false);
-                    }
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    using var proc = System.Diagnostics.Process.Start(psi);
+                    proc?.WaitForExit();
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to update AutoStart registry: {ex.Message}");
+                Console.WriteLine($"Failed to update AutoStart: {ex.Message}");
             }
         }
 
@@ -221,8 +240,8 @@ namespace SmartWindowTool.Models
                         settings.EnsureDefaultSizes();
                         settings._isLoaded = true;
                         
-                        // Sync registry on load
-                        settings.UpdateAutoStartRegistry(settings.AutoStart);
+                        // Sync auto-start state on load
+                        settings.UpdateAutoStart(settings.AutoStart);
                         
                         return settings;
                     }
