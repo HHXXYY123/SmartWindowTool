@@ -29,7 +29,7 @@
 
 ## 🚀 安装与运行
 
-本项目打包为**框架依赖的单文件 (Framework-Dependent Single File)**。体积非常小巧（仅约 3MB）。
+本项目打包为**框架依赖的单文件 (Framework-Dependent Single File)**。当前发布体积约 7MB。
 
 ### 环境要求
 - 运行前请确保你的电脑上安装了 **[.NET 8 Desktop Runtime (Windows 桌面运行时)](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)**。
@@ -46,6 +46,18 @@
 - **开机自启动**：开启后，软件会在每次电脑开机时自动在后台启动。
 - **静默启动**：开启后，双击运行软件将不会弹出主界面，直接隐匿在托盘运行，实现完全无感。
 - 配置文件将自动存储在系统标准应用目录中：`%AppData%\SmartWindowTool\SmartWindowTool.json`。
+
+首次开启自启动时需要确认一次 UAC。程序会把运行文件复制到受系统权限保护的
+`%ProgramFiles%\SmartWindowTool`，再创建当前用户专属的登录任务；任务权限会跟随“管理员权限”开关，
+后续登录不会重复弹出 UAC。
+只有在新任务创建成功后，旧版注册表启动项才会被移除。
+
+## ✅ 开发验证
+
+```powershell
+dotnet test Tests\SmartWindowTool.Tests.csproj
+dotnet publish SmartWindowTool.csproj -c Release -o artifacts\publish
+```
 
 ## 🛠️ 技术栈
 - **C# / .NET 8**

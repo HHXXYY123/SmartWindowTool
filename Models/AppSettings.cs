@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using System.Windows.Forms;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
@@ -85,8 +84,8 @@ namespace SmartWindowTool.Models
             get => _autoStart;
             set 
             { 
+                if (_autoStart == value) return;
                 _autoStart = value; 
-                UpdateAutoStart(value);
                 OnPropertyChanged(); 
             }
         }
@@ -95,54 +94,6 @@ namespace SmartWindowTool.Models
         {
             get => _runAsAdmin;
             set { _runAsAdmin = value; OnPropertyChanged(); }
-        }
-
-        private void UpdateAutoStart(bool enable)
-        {
-            if (!_isLoaded) return;
-            const string taskName = "SmartWindowTool";
-            const string registryRunKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-            try
-            {
-                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
-                if (string.IsNullOrEmpty(exePath)) return;
-
-                // 清理旧版注册表自启残留，避免双启
-                try
-                {
-                    using var regKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(registryRunKey, true);
-                    regKey?.DeleteValue(taskName, false);
-                }
-                catch { }
-
-                if (enable)
-                {
-                    var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe",
-                        $"/Create /TN \"{taskName}\" /TR \"\\\"{exePath}\\\"\" /SC ONLOGON /RL HIGHEST /F")
-                    {
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardError = true
-                    };
-                    using var proc = System.Diagnostics.Process.Start(psi);
-                    proc?.WaitForExit();
-                }
-                else
-                {
-                    var psi = new System.Diagnostics.ProcessStartInfo("schtasks.exe",
-                        $"/Delete /TN \"{taskName}\" /F")
-                    {
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    using var proc = System.Diagnostics.Process.Start(psi);
-                    proc?.WaitForExit();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to update AutoStart: {ex.Message}");
-            }
         }
 
         private bool _isLoaded = false;
@@ -240,9 +191,6 @@ namespace SmartWindowTool.Models
                         settings.EnsureDefaultSizes();
                         settings._isLoaded = true;
                         
-                        // Sync auto-start state on load
-                        settings.UpdateAutoStart(settings.AutoStart);
-                        
                         return settings;
                     }
                 }
@@ -271,8 +219,8 @@ namespace SmartWindowTool.Models
             catch { }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             Save();

@@ -19,7 +19,7 @@ namespace SmartWindowTool.Models
         public string Key2 { get => _key2; set { _key2 = value; OnPropertyChanged(); } }
         public string MouseButton { get => _mouseButton; set { _mouseButton = value; OnPropertyChanged(); } }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

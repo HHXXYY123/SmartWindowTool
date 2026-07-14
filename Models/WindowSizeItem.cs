@@ -5,7 +5,7 @@ namespace SmartWindowTool.Models
 {
     public class WindowSizeItem : INotifyPropertyChanged
     {
-        private string _title;
+        private string _title = string.Empty;
         private int _width;
         private int _height;
 
@@ -39,8 +39,8 @@ namespace SmartWindowTool.Models
             Height = height;
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

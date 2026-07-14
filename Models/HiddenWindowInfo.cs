@@ -7,12 +7,12 @@ namespace SmartWindowTool.Models
     public class HiddenWindowInfo : INotifyPropertyChanged
     {
         private IntPtr _hwnd;
-        private string _title;
-        private string _className;
+        private string _title = string.Empty;
+        private string _className = string.Empty;
         private DateTime _hiddenAt;
         private bool _isClickThrough;
         private bool _isTray;
-        private System.Windows.Forms.NotifyIcon _appTrayIcon;
+        private System.Windows.Forms.NotifyIcon? _appTrayIcon;
 
         public IntPtr Hwnd
         {
@@ -76,7 +76,7 @@ namespace SmartWindowTool.Models
             }
         }
 
-        public System.Windows.Forms.NotifyIcon AppTrayIcon
+        public System.Windows.Forms.NotifyIcon? AppTrayIcon
         {
             get => _appTrayIcon;
             set
@@ -103,9 +103,9 @@ namespace SmartWindowTool.Models
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

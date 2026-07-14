@@ -8,23 +8,20 @@ using SmartWindowTool.Views;
 
 namespace SmartWindowTool
 {
-    public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
+    public partial class MainWindow : Window
     {
-        private HookService _hookService;
-        private FloatingMenuWindow _floatingMenu;
-        private ViewModels.MainViewModel _viewModel;
-        private System.Windows.Forms.NotifyIcon _notifyIcon;
-        private Wpf.Ui.Controls.WindowBackdropType _originalBackdropType;
-        private bool _backdropOverridden;
+        private readonly HookService _hookService;
+        private readonly FloatingMenuWindow _floatingMenu;
+        private readonly ViewModels.MainViewModel _viewModel;
+        private System.Windows.Forms.NotifyIcon? _notifyIcon;
 
-        public MainWindow()
+        public MainWindow(AppSettings settings)
         {
             InitializeComponent();
+            WindowStyle = WindowStyle.None;
 
-            _viewModel = new ViewModels.MainViewModel();
+            _viewModel = new ViewModels.MainViewModel(settings);
             this.DataContext = _viewModel;
-
-            _originalBackdropType = this.WindowBackdropType;
 
             // Restore window position if saved
             if (!double.IsNaN(_viewModel.Settings.MainWindowLeft) && !double.IsNaN(_viewModel.Settings.MainWindowTop))
@@ -40,11 +37,10 @@ namespace SmartWindowTool
                 IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 var source = System.Windows.Interop.HwndSource.FromHwnd(hwnd);
                 source.AddHook(WndProc);
-
-                // 启用窗口暗色模式，使 DWM 框架（圆角区域等）使用深色而非白色
-                int useDarkMode = 1;
-                Win32Api.DwmSetWindowAttribute(hwnd, Win32Api.DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDarkMode, sizeof(int));
+                ApplyDwmTheme(SystemThemeService.IsDarkTheme);
             };
+
+            SystemThemeService.ThemeChanged += OnSystemThemeChanged;
 
             _floatingMenu = new FloatingMenuWindow(_viewModel);
 
@@ -67,13 +63,80 @@ namespace SmartWindowTool
         // 拦截系统擦除窗口背景的消息，防止 DWM 画白色底色
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            const int WM_NCHITTEST = 0x0084;
             const int WM_ERASEBKGND = 0x0014;
+            if (msg == WM_NCHITTEST && WindowState == WindowState.Normal &&
+                Win32Api.GetWindowRect(hwnd, out Win32Api.RECT rect))
+            {
+                long packedPoint = lParam.ToInt64();
+                int cursorX = unchecked((short)(packedPoint & 0xFFFF));
+                int cursorY = unchecked((short)((packedPoint >> 16) & 0xFFFF));
+                int resizeBorder = Math.Max(1,
+                    (int)Math.Ceiling(6 * System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX));
+
+                bool left = cursorX < rect.Left + resizeBorder;
+                bool right = cursorX >= rect.Right - resizeBorder;
+                bool top = cursorY < rect.Top + resizeBorder;
+                bool bottom = cursorY >= rect.Bottom - resizeBorder;
+
+                int hitTest = top && left ? 13 :
+                    top && right ? 14 :
+                    bottom && left ? 16 :
+                    bottom && right ? 17 :
+                    left ? 10 :
+                    right ? 11 :
+                    top ? 12 :
+                    bottom ? 15 : 1;
+                if (hitTest != 1)
+                {
+                    handled = true;
+                    return new IntPtr(hitTest);
+                }
+            }
+
             if (msg == WM_ERASEBKGND)
             {
                 handled = true;
                 return (IntPtr)1;
             }
             return IntPtr.Zero;
+        }
+
+        private void OnSystemThemeChanged(bool isDarkTheme)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => ApplyDwmTheme(isDarkTheme)));
+                return;
+            }
+
+            ApplyDwmTheme(isDarkTheme);
+        }
+
+        private void ApplyDwmTheme(bool isDarkTheme)
+        {
+            IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+
+            int useDarkMode = isDarkTheme ? 1 : 0;
+            Win32Api.DwmSetWindowAttribute(
+                hwnd,
+                Win32Api.DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ref useDarkMode,
+                sizeof(int));
+        }
+
+        protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+        {
+            base.OnRenderSizeChanged(sizeInfo);
+            if (RootGrid == null) return;
+
+            double radius = WindowState == WindowState.Maximized ? 0 : 8;
+            RootGrid.Clip = new System.Windows.Media.RectangleGeometry(
+                new Rect(0, 0, ActualWidth, ActualHeight),
+                radius,
+                radius);
+            WindowFrameBorder.CornerRadius = new CornerRadius(radius);
         }
 
         private void InitializeTrayIcon()
@@ -106,12 +169,15 @@ namespace SmartWindowTool
         {
             var contextMenu = new System.Windows.Controls.ContextMenu();
 
-            // Apply application resources to the ContextMenu so it inherits Wpf.Ui styles
-            if (Application.Current.Resources.MergedDictionaries.Count > 0)
+            contextMenu.SetResourceReference(FrameworkElement.StyleProperty, "SmartContextMenuStyle");
+            if (Application.Current.TryFindResource("SmartMenuItemStyle") is Style menuItemStyle)
             {
-                contextMenu.Resources.MergedDictionaries.Add(Application.Current.Resources.MergedDictionaries[0]);
+                contextMenu.Resources[typeof(System.Windows.Controls.MenuItem)] = menuItemStyle;
             }
-            contextMenu.SetResourceReference(FrameworkElement.StyleProperty, typeof(System.Windows.Controls.ContextMenu));
+            if (Application.Current.TryFindResource("SmartMenuSeparatorStyle") is Style separatorStyle)
+            {
+                contextMenu.Resources[typeof(System.Windows.Controls.Separator)] = separatorStyle;
+            }
 
             var showItem = new System.Windows.Controls.MenuItem { Header = "显示主界面" };
             showItem.Click += (s, e) => ShowMainWindow();
@@ -194,7 +260,7 @@ namespace SmartWindowTool
 
         private bool _isRealExit = false;
 
-        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
             if (!_isRealExit)
             {
@@ -216,18 +282,54 @@ namespace SmartWindowTool
             this.Activate();
         }
 
-        private void ExitApp_Click(object sender, RoutedEventArgs e)
+        public void ShowFromSecondaryInstance()
+        {
+            ShowMainWindow();
+        }
+
+        private void ExitApp_Click(object? sender, RoutedEventArgs? e)
         {
             _isRealExit = true;
             if (_notifyIcon != null)
             {
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
+                _notifyIcon = null;
             }
-            this.Close();
+            Application.Current.Shutdown();
         }
 
-        private void OnAnyMouseDown(object sender, Gma.System.MouseKeyHook.MouseEventExtArgs e)
+        private async void AutoStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.CheckBox checkBox) return;
+
+            ((App)Application.Current).InvalidateAutoStartRefresh();
+            bool previousValue = _viewModel.Settings.AutoStart;
+            bool requestedValue = checkBox.IsChecked == true;
+            checkBox.IsEnabled = false;
+
+            try
+            {
+                AutoStartResult result = await AutoStartService.ConfigureForCurrentUserAsync(
+                    requestedValue,
+                    _viewModel.Settings.RunAsAdmin);
+                if (result.Succeeded)
+                {
+                    _viewModel.Settings.AutoStart = requestedValue;
+                }
+                else
+                {
+                    checkBox.IsChecked = previousValue;
+                    MessageBox.Show(result.ErrorMessage, "自启动设置失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            finally
+            {
+                checkBox.IsEnabled = true;
+            }
+        }
+
+        private void OnAnyMouseDown(object? sender, Gma.System.MouseKeyHook.MouseEventExtArgs e)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -264,7 +366,7 @@ namespace SmartWindowTool
             return _viewModel.Settings.IgnoreTaskbar ? screen.Bounds : screen.WorkingArea;
         }
 
-        private void OnWindowAlignmentRequested(object sender, WindowAlignment alignment)
+        private void OnWindowAlignmentRequested(object? sender, WindowAlignment alignment)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -326,7 +428,7 @@ namespace SmartWindowTool
             });
         }
 
-        private void OnWindowTransparencyRequested(object sender, int transparencyPercentage)
+        private void OnWindowTransparencyRequested(object? sender, int transparencyPercentage)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -341,64 +443,24 @@ namespace SmartWindowTool
                 if (pct < 10) pct = 10;
                 if (pct > 100) pct = 100;
 
-                // 检查是否是自己的窗口
                 Win32Api.GetWindowThreadProcessId(target, out uint pid);
                 if (pid == (uint)Process.GetCurrentProcess().Id)
                 {
-                    // 使用 WPF Window.Opacity（同步 Win32 层状态确保正确渲染）
-                    Window foundWindow = Application.Current.Windows.Cast<Window>()
+                    Window? foundWindow = Application.Current.Windows.Cast<Window>()
                         .FirstOrDefault(w => new System.Windows.Interop.WindowInteropHelper(w).Handle == target);
 
                     if (foundWindow != null)
                     {
                         foundWindow.Opacity = pct / 100.0;
-                        // 同步设置 Win32 层叠窗口样式，保证 DWM 层面正确透明回写
-                        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(foundWindow).Handle;
-                        uint exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
-                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
-                        {
-                            Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
-                            Win32Api.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                        }
-                        byte alpha = (byte)(pct / 100.0 * 255);
-                        Win32Api.SetLayeredWindowAttributes(hwnd, 0, alpha, Win32Api.LWA_ALPHA);
-                        return;
-                    }
-                    else
-                    {
-                        // Win32 API 回退
-                        byte alpha = (byte)(pct / 100.0 * 255);
-                        uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
-                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
-                        {
-                            Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
-                            Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, 0, 0,
-                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                        }
-                        Win32Api.SetLayeredWindowAttributes(target, 0, alpha, Win32Api.LWA_ALPHA);
-                        Win32Api.InvalidateRect(target, IntPtr.Zero, false);
-                        Win32Api.UpdateWindow(target);
-                        int cornerPref = Win32Api.DWMWCP_ROUND;
-                        Win32Api.DwmSetWindowAttribute(target, Win32Api.DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPref, sizeof(int));
                         return;
                     }
                 }
 
-                // 其他程序的窗口，使用 Win32 API
-                byte alpha2 = (byte)(pct / 100.0 * 255);
-                uint exStyle2 = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
-                if ((exStyle2 & Win32Api.WS_EX_LAYERED) == 0)
-                {
-                    Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle2 | Win32Api.WS_EX_LAYERED);
-                }
-                Win32Api.SetLayeredWindowAttributes(target, 0, alpha2, Win32Api.LWA_ALPHA);
-                Win32Api.InvalidateRect(target, IntPtr.Zero, false);
-                Win32Api.UpdateWindow(target);
+                SetNativeWindowOpacity(target, pct);
             });
         }
 
-        private void OnWindowTransparencyAdjustRequested(object sender, int deltaPercentage)
+        private void OnWindowTransparencyAdjustRequested(object? sender, int deltaPercentage)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -409,12 +471,10 @@ namespace SmartWindowTool
                 }
                 if (target == IntPtr.Zero) return;
 
-                // 检查是否是自己的窗口
                 Win32Api.GetWindowThreadProcessId(target, out uint pid);
                 if (pid == (uint)Process.GetCurrentProcess().Id)
                 {
-                    // 使用 WPF Window.Opacity（同步 Win32 层状态确保正确渲染）
-                    Window foundWindow = Application.Current.Windows.Cast<Window>()
+                    Window? foundWindow = Application.Current.Windows.Cast<Window>()
                         .FirstOrDefault(w => new System.Windows.Interop.WindowInteropHelper(w).Handle == target);
 
                     if (foundWindow != null)
@@ -424,81 +484,51 @@ namespace SmartWindowTool
                         if (newPct < 10) newPct = 10;
                         if (newPct > 100) newPct = 100;
                         foundWindow.Opacity = newPct / 100.0;
-                        // 同步设置 Win32 层叠窗口样式
-                        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(foundWindow).Handle;
-                        uint exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
-                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
-                        {
-                            Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
-                            Win32Api.SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                        }
-                        byte alpha = (byte)(newPct / 100.0 * 255);
-                        Win32Api.SetLayeredWindowAttributes(hwnd, 0, alpha, Win32Api.LWA_ALPHA);
-                        return;
-                    }
-                    else
-                    {
-                        // Win32 API 回退
-                        uint exStyle = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
-                        byte currentAlpha = 255;
-                        if ((exStyle & Win32Api.WS_EX_LAYERED) != 0)
-                        {
-                            if (Win32Api.GetLayeredWindowAttributes(target, out uint _, out byte bAlpha, out uint _))
-                            {
-                                currentAlpha = bAlpha;
-                            }
-                        }
-
-                        int targetPercentage = (int)Math.Round(currentAlpha / 255.0 * 100.0);
-                        int adjustedPercentage = targetPercentage + deltaPercentage;
-                        if (adjustedPercentage < 10) adjustedPercentage = 10;
-                        if (adjustedPercentage > 100) adjustedPercentage = 100;
-                        byte newAlpha = (byte)(adjustedPercentage / 100.0 * 255);
-
-                        if ((exStyle & Win32Api.WS_EX_LAYERED) == 0)
-                        {
-                            Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
-                            Win32Api.SetWindowPos(target, IntPtr.Zero, 0, 0, 0, 0,
-                                Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED);
-                        }
-                        Win32Api.SetLayeredWindowAttributes(target, 0, newAlpha, Win32Api.LWA_ALPHA);
-                        Win32Api.InvalidateRect(target, IntPtr.Zero, false);
-                        Win32Api.UpdateWindow(target);
-                        int cornerPref = Win32Api.DWMWCP_ROUND;
-                        Win32Api.DwmSetWindowAttribute(target, Win32Api.DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPref, sizeof(int));
                         return;
                     }
                 }
 
-                // 其他程序的窗口，使用 Win32 API
-                uint exStyle2 = Win32Api.GetWindowLong(target, Win32Api.GWL_EXSTYLE);
-                byte currentAlpha2 = 255;
-                if ((exStyle2 & Win32Api.WS_EX_LAYERED) != 0)
-                {
-                    if (Win32Api.GetLayeredWindowAttributes(target, out uint _, out byte bAlpha, out uint _))
-                    {
-                        currentAlpha2 = bAlpha;
-                    }
-                }
-
-                int targetPercentage2 = (int)Math.Round(currentAlpha2 / 255.0 * 100.0);
-                int adjustedPercentage2 = targetPercentage2 + deltaPercentage;
-                if (adjustedPercentage2 < 10) adjustedPercentage2 = 10;
-                if (adjustedPercentage2 > 100) adjustedPercentage2 = 100;
-                byte newAlpha2 = (byte)(adjustedPercentage2 / 100.0 * 255);
-
-                if ((exStyle2 & Win32Api.WS_EX_LAYERED) == 0)
-                {
-                    Win32Api.SetWindowLong(target, Win32Api.GWL_EXSTYLE, exStyle2 | Win32Api.WS_EX_LAYERED);
-                }
-                Win32Api.SetLayeredWindowAttributes(target, 0, newAlpha2, Win32Api.LWA_ALPHA);
-                Win32Api.InvalidateRect(target, IntPtr.Zero, false);
-                Win32Api.UpdateWindow(target);
+                int adjustedPercentage = Math.Clamp(
+                    GetNativeWindowOpacityPercentage(target) + deltaPercentage,
+                    10,
+                    100);
+                SetNativeWindowOpacity(target, adjustedPercentage);
             });
         }
 
-        private void OnWindowHeightAdjustRequested(object sender, int delta)
+        private static int GetNativeWindowOpacityPercentage(IntPtr hwnd)
+        {
+            uint exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
+            if ((exStyle & Win32Api.WS_EX_LAYERED) != 0 &&
+                Win32Api.GetLayeredWindowAttributes(hwnd, out _, out byte alpha, out uint flags) &&
+                (flags & Win32Api.LWA_ALPHA) != 0)
+            {
+                return (int)Math.Round(alpha / 255.0 * 100.0);
+            }
+
+            return 100;
+        }
+
+        private static void SetNativeWindowOpacity(
+            IntPtr hwnd,
+            int opacityPercentage)
+        {
+            int clampedPercentage = Math.Clamp(opacityPercentage, 10, 100);
+            uint exStyle = Win32Api.GetWindowLong(hwnd, Win32Api.GWL_EXSTYLE);
+            bool isLayered = (exStyle & Win32Api.WS_EX_LAYERED) != 0;
+
+            if (!isLayered)
+            {
+                Win32Api.SetWindowLong(hwnd, Win32Api.GWL_EXSTYLE, exStyle | Win32Api.WS_EX_LAYERED);
+            }
+
+            byte alpha = (byte)Math.Round(clampedPercentage / 100.0 * 255);
+            Win32Api.SetLayeredWindowAttributes(hwnd, 0, alpha, Win32Api.LWA_ALPHA);
+            Win32Api.InvalidateRect(hwnd, IntPtr.Zero, false);
+            Win32Api.UpdateWindow(hwnd);
+        }
+
+        private void OnWindowHeightAdjustRequested(object? sender, int delta)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -517,7 +547,7 @@ namespace SmartWindowTool
             });
         }
 
-        private void OnWindowWidthAdjustRequested(object sender, int delta)
+        private void OnWindowWidthAdjustRequested(object? sender, int delta)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -536,7 +566,7 @@ namespace SmartWindowTool
             });
         }
 
-        private void OnWindowPositionMoveRequested(object sender, (int DeltaX, int DeltaY) e)
+        private void OnWindowPositionMoveRequested(object? sender, (int DeltaX, int DeltaY) e)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -554,7 +584,7 @@ namespace SmartWindowTool
             });
         }
 
-        private void OnContextMenuRequested(object sender, HookEventArgs e)
+        private void OnContextMenuRequested(object? sender, HookEventArgs e)
         {
             // Run on UI thread
             Application.Current.Dispatcher.Invoke(() =>
@@ -571,54 +601,24 @@ namespace SmartWindowTool
                 {
                     _floatingMenu.TargetWindowHwnd = rootHwnd;
                     _floatingMenu.UpdateState();
-                    
-                    // Position the menu, considering DPI scaling
-                    var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
-                    double logicalMouseX = e.MouseX / dpi.DpiScaleX;
-                    double logicalMouseY = e.MouseY / dpi.DpiScaleY;
-                    
-                    // We no longer rely on Deactivated event, so we can simplify the show logic
+
                     _floatingMenu.Hide();
-                    
-                    // Measure the menu's desired size without showing it
-                    _floatingMenu.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    double menuWidth = _floatingMenu.DesiredSize.Width;
-                    double menuHeight = _floatingMenu.DesiredSize.Height;
-                    
-                    // Fallback to defaults if measure fails
-                    if (menuWidth == 0) menuWidth = 170;
-                    if (menuHeight == 0) menuHeight = 350;
-                    
-                    // Reposition menu if it goes out of screen bounds
-                    var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(e.MouseX, e.MouseY));
-                    
-                    // Use effective area (taskbar-aware or full screen based on setting)
-                    double logicalScreenWidth = GetEffectiveArea(screen).Width / dpi.DpiScaleX;
-                    double logicalScreenHeight = GetEffectiveArea(screen).Height / dpi.DpiScaleY;
-                    double logicalScreenLeft = GetEffectiveArea(screen).Left / dpi.DpiScaleX;
-                    double logicalScreenTop = GetEffectiveArea(screen).Top / dpi.DpiScaleY;
+                    _floatingMenu.UpdateLayout();
 
-                    double finalLeft = logicalMouseX;
-                    double finalTop = logicalMouseY;
+                    // Pre-position the hidden native window so Show cannot submit a frame at a
+                    // stale or off-screen location.
+                    var initialPosition = GetFloatingMenuPosition(menuHwnd, e.MouseX, e.MouseY);
+                    Win32Api.SetWindowPos(menuHwnd, new IntPtr(-1),
+                        initialPosition.Left, initialPosition.Top, 0, 0,
+                        Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
 
-                    if (finalLeft + menuWidth > logicalScreenLeft + logicalScreenWidth)
-                    {
-                        finalLeft = logicalScreenLeft + logicalScreenWidth - menuWidth;
-                    }
-                    if (finalTop + menuHeight > logicalScreenTop + logicalScreenHeight)
-                    {
-                        finalTop = logicalScreenTop + logicalScreenHeight - menuHeight;
-                    }
-                    
-                    // Position exactly before showing to prevent ANY flicker
-                    _floatingMenu.Left = finalLeft;
-                    _floatingMenu.Top = finalTop;
-                    _floatingMenu.Opacity = 1;
                     _floatingMenu.Show();
-                    
-                    // Enforce Topmost and foreground to prevent the menu from hiding behind other windows
+                    _floatingMenu.UpdateLayout();
+                    var finalPosition = GetFloatingMenuPosition(menuHwnd, e.MouseX, e.MouseY);
                     _floatingMenu.Topmost = true;
-                    Win32Api.SetWindowPos(menuHwnd, new IntPtr(-1), 0, 0, 0, 0, Win32Api.SWP_NOMOVE | Win32Api.SWP_NOSIZE | Win32Api.SWP_SHOWWINDOW);
+                    Win32Api.SetWindowPos(menuHwnd, new IntPtr(-1),
+                        finalPosition.Left, finalPosition.Top, 0, 0,
+                        Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
                     Win32Api.SetForegroundWindow(menuHwnd);
                 }
                 else
@@ -628,8 +628,52 @@ namespace SmartWindowTool
             });
         }
 
+        private (int Left, int Top) GetFloatingMenuPosition(IntPtr menuHwnd, int mouseX, int mouseY)
+        {
+            var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(mouseX, mouseY));
+            var effectiveArea = GetEffectiveArea(screen);
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(_floatingMenu);
+            int menuWidthPixels = Math.Max(170,
+                (int)Math.Ceiling(_floatingMenu.ActualWidth * dpi.DpiScaleX));
+            int menuHeightPixels = Math.Max(350,
+                (int)Math.Ceiling(_floatingMenu.ActualHeight * dpi.DpiScaleY));
+            if (Win32Api.GetWindowRect(menuHwnd, out Win32Api.RECT menuRect))
+            {
+                int nativeWidth = menuRect.Right - menuRect.Left;
+                int nativeHeight = menuRect.Bottom - menuRect.Top;
+                if (nativeWidth > 1 && nativeHeight > 1)
+                {
+                    menuWidthPixels = nativeWidth;
+                    menuHeightPixels = nativeHeight;
+                }
+            }
+
+            return ClampFloatingMenuPosition(
+                effectiveArea,
+                mouseX,
+                mouseY,
+                menuWidthPixels,
+                menuHeightPixels);
+        }
+
+        internal static (int Left, int Top) ClampFloatingMenuPosition(
+            System.Drawing.Rectangle effectiveArea,
+            int mouseX,
+            int mouseY,
+            int menuWidthPixels,
+            int menuHeightPixels)
+        {
+            int finalLeft = Math.Max(effectiveArea.Left,
+                Math.Min(mouseX, effectiveArea.Right - menuWidthPixels));
+            int finalTop = Math.Max(effectiveArea.Top,
+                Math.Min(mouseY, effectiveArea.Bottom - menuHeightPixels));
+
+            return (finalLeft, finalTop);
+        }
+
         protected override void OnClosed(EventArgs e)
         {
+            SystemThemeService.ThemeChanged -= OnSystemThemeChanged;
             _hookService.Stop();
             _floatingMenu.Close();
 
@@ -667,7 +711,7 @@ namespace SmartWindowTool
 
         private void AddBlacklist_Click(object sender, RoutedEventArgs e)
         {
-            string processName = BlacklistInput.Text?.Trim();
+            string? processName = BlacklistInput.Text?.Trim();
             if (!string.IsNullOrEmpty(processName))
             {
                 if (!processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
@@ -730,15 +774,23 @@ namespace SmartWindowTool
             }
         }
 
-        private void RunAsAdmin_Click(object sender, RoutedEventArgs e)
+        private async void RunAsAdmin_Click(object sender, RoutedEventArgs e)
         {
             bool isAdmin = new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
             if (_viewModel.Settings.RunAsAdmin && !isAdmin)
             {
-                var processInfo = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName)
+                string? executablePath = Environment.ProcessPath;
+                if (string.IsNullOrWhiteSpace(executablePath))
+                {
+                    _viewModel.Settings.RunAsAdmin = false;
+                    return;
+                }
+
+                var processInfo = new ProcessStartInfo(executablePath)
                 {
                     UseShellExecute = true,
-                    Verb = "runas"
+                    Verb = "runas",
+                    Arguments = $"{App.ReplaceInstanceArgument} {App.SyncAutoStartArgument}"
                 };
                 try
                 {
@@ -758,12 +810,31 @@ namespace SmartWindowTool
             }
             else if (!_viewModel.Settings.RunAsAdmin && isAdmin)
             {
-                var processInfo = new ProcessStartInfo("explorer.exe", Process.GetCurrentProcess().MainModule.FileName)
+                if (_viewModel.Settings.AutoStart)
+                {
+                    AutoStartResult result = await AutoStartService.ConfigureForCurrentUserAsync(true, false);
+                    if (!result.Succeeded)
+                    {
+                        _viewModel.Settings.RunAsAdmin = true;
+                        MessageBox.Show(result.ErrorMessage, "管理员权限设置失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                }
+
+                string? executablePath = Environment.ProcessPath;
+                if (string.IsNullOrWhiteSpace(executablePath))
+                {
+                    _viewModel.Settings.RunAsAdmin = true;
+                    return;
+                }
+
+                var processInfo = new ProcessStartInfo("explorer.exe", $"\"{executablePath}\"")
                 {
                     UseShellExecute = true
                 };
                 try
                 {
+                    ((App)Application.Current).PrepareForRestart();
                     Process.Start(processInfo);
                     _isRealExit = true;
                     if (_notifyIcon != null)
@@ -775,6 +846,7 @@ namespace SmartWindowTool
                 }
                 catch
                 {
+                    ((App)Application.Current).CancelRestart();
                     _viewModel.Settings.RunAsAdmin = true;
                 }
             }

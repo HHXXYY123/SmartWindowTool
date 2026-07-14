@@ -16,18 +16,18 @@ namespace SmartWindowTool.Core
 
     public class HookService : IDisposable
     {
-        private IKeyboardMouseEvents _globalHook;
-        private Models.AppSettings _settings;
+        private IKeyboardMouseEvents? _globalHook;
+        private readonly Models.AppSettings _settings;
         
         // Event triggered when Context Menu is requested
-        public event EventHandler<HookEventArgs> OnContextMenuRequested;
-        public event EventHandler<WindowAlignment> OnWindowAlignmentRequested;
-        public event EventHandler<int> OnWindowTransparencyRequested;
-        public event EventHandler<int> OnWindowTransparencyAdjustRequested;
-        public event EventHandler<int> OnWindowHeightAdjustRequested;
-        public event EventHandler<int> OnWindowWidthAdjustRequested;
-        public event EventHandler<(int DeltaX, int DeltaY)> OnWindowPositionMoveRequested;
-        public event EventHandler<MouseEventExtArgs> OnAnyMouseDown;
+        public event EventHandler<HookEventArgs>? OnContextMenuRequested;
+        public event EventHandler<WindowAlignment>? OnWindowAlignmentRequested;
+        public event EventHandler<int>? OnWindowTransparencyRequested;
+        public event EventHandler<int>? OnWindowTransparencyAdjustRequested;
+        public event EventHandler<int>? OnWindowHeightAdjustRequested;
+        public event EventHandler<int>? OnWindowWidthAdjustRequested;
+        public event EventHandler<(int DeltaX, int DeltaY)>? OnWindowPositionMoveRequested;
+        public event EventHandler<MouseEventExtArgs>? OnAnyMouseDown;
 
         public HookService(Models.AppSettings settings)
         {
@@ -36,6 +36,7 @@ namespace SmartWindowTool.Core
 
         public void Start()
         {
+            if (_globalHook != null) return;
             _globalHook = Hook.GlobalEvents();
             _globalHook.MouseDownExt += GlobalHook_MouseDownExt;
             _globalHook.KeyDown += GlobalHook_KeyDown;
@@ -136,7 +137,7 @@ namespace SmartWindowTool.Core
             return true;
         }
 
-        private void GlobalHook_MouseWheelExt(object sender, MouseEventExtArgs e)
+        private void GlobalHook_MouseWheelExt(object? sender, MouseEventExtArgs e)
         {
             if (_settings.EnableTransparencyHotkey && IsHotkeyMatch(_settings.TransparencyHotkey, null, true))
             {
@@ -158,7 +159,7 @@ namespace SmartWindowTool.Core
             }
         }
 
-        private void GlobalHook_KeyDown(object sender, KeyEventArgs e)
+        private void GlobalHook_KeyDown(object? sender, KeyEventArgs e)
         {
             if (_settings.EnableAltNumpad && IsKeyPressed(VK_MENU) && !IsKeyPressed(VK_CONTROL) && !IsKeyPressed(VK_SHIFT))
             {
@@ -197,7 +198,7 @@ namespace SmartWindowTool.Core
             }
         }
 
-        private void GlobalHook_MouseDownExt(object sender, MouseEventExtArgs e)
+        private void GlobalHook_MouseDownExt(object? sender, MouseEventExtArgs e)
         {
             if (IsHotkeyMatch(_settings.MenuHotkey, e.Button))
             {

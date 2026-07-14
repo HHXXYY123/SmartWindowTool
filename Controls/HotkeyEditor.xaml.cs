@@ -45,7 +45,7 @@ namespace SmartWindowTool.Controls
             }
         }
 
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
         public HotkeyEditor()
         {

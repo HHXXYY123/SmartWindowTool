@@ -8,7 +8,33 @@
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Dark" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" />
                 <ui:ControlsDictionary xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" />
+                <ResourceDictionary Source="Themes/Dark.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="SmartContextMenuStyle"
+                   TargetType="ContextMenu"
+                   BasedOn="{StaticResource {x:Type ContextMenu}}">
+                <Setter Property="Background" Value="{DynamicResource MenuBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource MenuBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="5" />
+                <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI" />
+                <Setter Property="FontSize" Value="13" />
+            </Style>
+
+            <Style x:Key="SmartMenuItemStyle"
+                   TargetType="MenuItem"
+                   BasedOn="{StaticResource {x:Type MenuItem}}">
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            </Style>
+
+            <Style x:Key="SmartMenuSeparatorStyle"
+                   TargetType="Separator"
+                   BasedOn="{StaticResource {x:Type Separator}}">
+                <Setter Property="Margin" Value="6,4" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
