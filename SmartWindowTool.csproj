@@ -7,6 +7,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     
     <!-- 单文件打包设置 -->
     <PublishSingleFile>true</PublishSingleFile>

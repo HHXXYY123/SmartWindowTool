@@ -66,4 +66,4 @@ dotnet publish SmartWindowTool.csproj -c Release -o artifacts\publish
 - **Global Mouse/Keyboard Hooks** (全局键鼠钩子)
 
 ## 📄 协议
-本项目基于 MIT License 协议开源。
+本项目基于 [GNU 通用公共许可证第 3 版](LICENSE)（GPL-3.0-only）开源。
