@@ -19,7 +19,7 @@ namespace SmartWindowTool.Views
 
         public class ScreenItem
         {
-            public string Name { get; set; }
+            public string Name { get; set; } = string.Empty;
             public int Index { get; set; }
         }
 
@@ -39,15 +39,6 @@ namespace SmartWindowTool.Views
                     // Clear focus to prevent the clicked button from showing a focus rectangle (white edge) on next show
                     System.Windows.Input.Keyboard.ClearFocus();
                     System.Windows.Input.FocusManager.SetFocusedElement(this, null);
-                }
-            };
-            
-            // Allow menu to reposition itself if it exceeds screen bounds after expanding sizes
-            this.SizeChanged += (s, e) => 
-            {
-                if (this.IsVisible && e.HeightChanged)
-                {
-                    AdjustPositionToScreen();
                 }
             };
         }
@@ -89,56 +80,6 @@ namespace SmartWindowTool.Views
         private System.Drawing.Rectangle GetEffectiveArea(System.Windows.Forms.Screen screen)
         {
             return _viewModel.Settings.IgnoreTaskbar ? screen.Bounds : screen.WorkingArea;
-        }
-
-        public void AdjustPositionToScreen()
-        {
-            var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            if (Win32Api.GetWindowRect(helper.Handle, out Win32Api.RECT rect))
-            {
-                var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(rect.Left, rect.Top));
-                
-                var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
-                double logicalScreenHeight = GetEffectiveArea(screen).Height / dpi.DpiScaleY;
-                double logicalScreenTop = GetEffectiveArea(screen).Top / dpi.DpiScaleY;
-                double logicalScreenWidth = GetEffectiveArea(screen).Width / dpi.DpiScaleX;
-                double logicalScreenLeft = GetEffectiveArea(screen).Left / dpi.DpiScaleX;
-
-                bool changed = false;
-                double newTop = this.Top;
-                double newLeft = this.Left;
-
-                // Adjust bottom edge
-                if (this.Top + this.ActualHeight > logicalScreenTop + logicalScreenHeight)
-                {
-                    newTop = logicalScreenTop + logicalScreenHeight - this.ActualHeight;
-                    changed = true;
-                }
-                
-                // Adjust right edge
-                if (this.Left + this.ActualWidth > logicalScreenLeft + logicalScreenWidth)
-                {
-                    newLeft = logicalScreenLeft + logicalScreenWidth - this.ActualWidth;
-                    changed = true;
-                }
-
-                // If after adjusting the bottom edge, the top edge goes off-screen (menu is taller than screen)
-                // or if we shrink the menu (collapse expander) and there's room to move back to the original mouse position,
-                // we should re-adjust to not fly away.
-                // But to make it simple and prevent the "fly away" behavior when collapsing:
-                // Let's just always ensure the top edge doesn't go above the screen
-                if (newTop < logicalScreenTop)
-                {
-                    newTop = logicalScreenTop;
-                    changed = true;
-                }
-
-                if (changed)
-                {
-                    this.Top = newTop;
-                    this.Left = newLeft;
-                }
-            }
         }
 
         public void UpdateState()
@@ -335,7 +276,11 @@ namespace SmartWindowTool.Views
                 string pidStr = processId.ToString();
 
                 var infoWindow = new InfoWindow(handleStr, titleStr, classStr, pidStr, processName, processPath);
+                this.Hide();
                 infoWindow.Show();
+                infoWindow.Activate();
+                infoWindow.Focus();
+                return;
             }
             this.Hide();
         }
@@ -348,7 +293,7 @@ namespace SmartWindowTool.Views
                 try
                 {
                     var process = Process.GetProcessById((int)processId);
-                    string path = process.MainModule?.FileName;
+                    string? path = process.MainModule?.FileName;
                     if (!string.IsNullOrEmpty(path))
                     {
                         Process.Start("explorer.exe", $"/select,\"{path}\"");

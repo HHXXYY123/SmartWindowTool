@@ -5,3 +5,5 @@ obj/
 *.suo
 .idea/
 settings.json
+publish/
+artifacts/

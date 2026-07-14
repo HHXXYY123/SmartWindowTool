@@ -34,6 +34,15 @@ namespace SmartWindowTool.Views
             this.Close();
         }
 
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                Close();
+            }
+        }
+
         /// <summary>
         /// 单击复制内容（无选中文本时）；双击选词或拖动选中不触发复制
         /// </summary>

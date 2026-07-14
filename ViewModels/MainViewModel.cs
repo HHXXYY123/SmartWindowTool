@@ -17,9 +17,9 @@ namespace SmartWindowTool.ViewModels
 
         public AppSettings Settings { get; }
 
-        public MainViewModel()
+        public MainViewModel(AppSettings settings)
         {
-            Settings = AppSettings.Load();
+            Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             
             HiddenWindows.CollectionChanged += (s, e) =>
             {
@@ -28,7 +28,7 @@ namespace SmartWindowTool.ViewModels
             };
         }
         
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
@@ -55,7 +55,7 @@ namespace SmartWindowTool.ViewModels
             if (isTray)
             {
                 // Try to extract the window's icon
-                System.Drawing.Icon icon = null;
+                System.Drawing.Icon? icon = null;
                 try
                 {
                     // Attempt 1: Get window icon via WM_GETICON
@@ -74,7 +74,11 @@ namespace SmartWindowTool.ViewModels
                         // Attempt 2: Extract from process executable
                         Win32Api.GetWindowThreadProcessId(hwnd, out uint pid);
                         var process = System.Diagnostics.Process.GetProcessById((int)pid);
-                        icon = System.Drawing.Icon.ExtractAssociatedIcon(process.MainModule.FileName);
+                        string? processPath = process.MainModule?.FileName;
+                        if (!string.IsNullOrWhiteSpace(processPath))
+                        {
+                            icon = System.Drawing.Icon.ExtractAssociatedIcon(processPath);
+                        }
                     }
                 }
                 catch { }
@@ -191,10 +195,11 @@ namespace SmartWindowTool.ViewModels
 
         public void RemoveHiddenWindow(HiddenWindowInfo info)
         {
-            if (info.AppTrayIcon != null)
+            System.Windows.Forms.NotifyIcon? trayIcon = info.AppTrayIcon;
+            if (trayIcon != null)
             {
-                info.AppTrayIcon.Visible = false;
-                info.AppTrayIcon.Dispose();
+                trayIcon.Visible = false;
+                trayIcon.Dispose();
                 info.AppTrayIcon = null;
             }
 
