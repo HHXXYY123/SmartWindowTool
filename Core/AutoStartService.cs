@@ -126,7 +126,7 @@ namespace SmartWindowTool.Core
                 if (!enable)
                 {
                     if (!DeleteTaskIfPresent(GetTaskName(userSid))) return 21;
-                    if (!DeleteTaskIfPresent(LegacyTaskName)) return 21;
+                    if (!DeleteTaskIfPresent(LegacyTaskName)) return 23;
                     return 0;
                 }
 
@@ -217,12 +217,80 @@ namespace SmartWindowTool.Core
             }
         }
 
-        private static bool DeleteTaskIfPresent(string taskName)
+        internal static bool DeleteTaskIfPresent(string taskName)
         {
-            AutoStartConfigurationState state = GetScheduledTaskState(taskName);
-            if (state == AutoStartConfigurationState.Unknown) return false;
-            if (state == AutoStartConfigurationState.NotConfigured) return true;
-            return RunSchtasks(new[] { "/Delete", "/TN", taskName, "/F" }).ExitCode == 0;
+            object? service = null;
+            object? folder = null;
+            try
+            {
+                Type? serviceType = Type.GetTypeFromProgID("Schedule.Service");
+                if (serviceType == null) return DeleteTaskWithSchtasks(taskName);
+
+                service = Activator.CreateInstance(serviceType);
+                if (service == null) return DeleteTaskWithSchtasks(taskName);
+
+                ((dynamic)service).Connect();
+                folder = ((dynamic)service).GetFolder("\\");
+                ((dynamic)folder).DeleteTask(taskName, 0);
+                return true;
+            }
+            catch (Exception ex) when (ex.HResult == FileNotFoundHResult)
+            {
+                return true;
+            }
+            catch
+            {
+                return DeleteTaskWithSchtasks(taskName);
+            }
+            finally
+            {
+                ReleaseComObject(folder);
+                ReleaseComObject(service);
+            }
+        }
+
+        private static bool DeleteTaskWithSchtasks(string taskName)
+        {
+            ProcessResult result = RunSchtasks(new[] { "/Delete", "/TN", taskName, "/F" });
+            if (result.ExitCode == 0) return true;
+
+            // A concurrent cleanup can make schtasks return a non-zero code even though the
+            // task is already gone. Check existence rather than enabled state here.
+            return IsScheduledTaskMissing(taskName);
+        }
+
+        private static bool IsScheduledTaskMissing(string taskName)
+        {
+            object? service = null;
+            object? folder = null;
+            object? task = null;
+            try
+            {
+                Type? serviceType = Type.GetTypeFromProgID("Schedule.Service");
+                if (serviceType == null) return false;
+
+                service = Activator.CreateInstance(serviceType);
+                if (service == null) return false;
+
+                ((dynamic)service).Connect();
+                folder = ((dynamic)service).GetFolder("\\");
+                task = ((dynamic)folder).GetTask(taskName);
+                return false;
+            }
+            catch (Exception ex) when (ex.HResult == FileNotFoundHResult)
+            {
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                ReleaseComObject(task);
+                ReleaseComObject(folder);
+                ReleaseComObject(service);
+            }
         }
 
         private static AutoStartConfigurationState GetScheduledTaskState(string taskName)
@@ -248,7 +316,7 @@ namespace SmartWindowTool.Core
                     ? AutoStartConfigurationState.Configured
                     : AutoStartConfigurationState.NotConfigured;
             }
-            catch (COMException ex) when (ex.HResult == FileNotFoundHResult)
+            catch (Exception ex) when (ex.HResult == FileNotFoundHResult)
             {
                 return AutoStartConfigurationState.NotConfigured;
             }
@@ -342,7 +410,7 @@ namespace SmartWindowTool.Core
             return WindowsIdentity.GetCurrent().User?.Value ?? throw new InvalidOperationException("无法获取当前用户 SID。");
         }
 
-        private static AutoStartResult FromHelperExitCode(int exitCode)
+        internal static AutoStartResult FromHelperExitCode(int exitCode)
         {
             return exitCode switch
             {
@@ -351,8 +419,9 @@ namespace SmartWindowTool.Core
                 11 => new AutoStartResult(false, "无法确定受保护的安装目录。"),
                 12 => new AutoStartResult(false, "无法将程序安装到受保护目录。"),
                 20 => new AutoStartResult(false, "计划任务创建失败。"),
-                21 => new AutoStartResult(false, "计划任务删除失败。"),
+                21 => new AutoStartResult(false, "当前用户的自启动计划任务删除失败，请确认任务计划程序服务正在运行后重试。"),
                 22 => new AutoStartResult(false, "旧版注册表启动项清理失败。"),
+                23 => new AutoStartResult(false, "旧版 SmartWindowTool 计划任务删除失败，请在任务计划程序中检查同名任务。"),
                 _ => new AutoStartResult(false, $"自启动配置助手失败，退出码：{exitCode}。")
             };
         }
