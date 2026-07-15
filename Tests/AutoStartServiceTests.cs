@@ -97,4 +97,24 @@ public class AutoStartServiceTests
                 (AutoStartConfigurationState)second));
     }
 
+    [Theory]
+    [InlineData(21, "当前用户")]
+    [InlineData(23, "旧版 SmartWindowTool")]
+    public void FromHelperExitCode_IdentifiesTaskDeletionTarget(int exitCode, string expectedText)
+    {
+        AutoStartResult result = AutoStartService.FromHelperExitCode(exitCode);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(expectedText, result.ErrorMessage);
+    }
+
+    [Fact]
+    public void DeleteTaskIfPresent_MissingTaskSucceeds()
+    {
+        bool deleted = AutoStartService.DeleteTaskIfPresent(
+            "SmartWindowTool-Test-Missing-85D9BCA1-72FD-4DB1-A7D0-322F769571F1");
+
+        Assert.True(deleted);
+    }
+
 }
