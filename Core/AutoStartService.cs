@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -130,23 +129,17 @@ namespace SmartWindowTool.Core
                     return 0;
                 }
 
-                string? sourcePath = Environment.ProcessPath;
-                string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-                if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(programFiles)) return 11;
+                string? executablePath = Environment.ProcessPath;
+                if (string.IsNullOrWhiteSpace(executablePath)) return 11;
 
-                string installDirectory = Path.Combine(programFiles, "SmartWindowTool");
-                string installedPath = Path.Combine(installDirectory, "SmartWindowTool.exe");
-                InstallApplicationFiles(sourcePath, installDirectory);
-
-                string taskAction = BuildTaskAction(installedPath);
-                var createResult = RunSchtasks(new[]
-                {
-                    "/Create", "/TN", GetTaskName(userSid), "/TR", taskAction,
-                    "/SC", "ONLOGON", "/RU", userName, "/IT", "/RL", runAsAdmin ? "HIGHEST" : "LIMITED", "/F"
-                });
+                var createResult = RunSchtasks(BuildCreateTaskArguments(
+                    executablePath,
+                    GetTaskName(userSid),
+                    userName,
+                    runAsAdmin));
                 if (createResult.ExitCode != 0) return 20;
 
-                // Only remove working legacy mechanisms after the protected task exists.
+                // Only remove working legacy mechanisms after the replacement task exists.
                 DeleteTaskIfPresent(LegacyTaskName);
                 return 0;
             }
@@ -159,6 +152,20 @@ namespace SmartWindowTool.Core
         internal static string BuildTaskAction(string executablePath)
         {
             return $"\"{executablePath}\" {AutoStartArgument}";
+        }
+
+        internal static string[] BuildCreateTaskArguments(
+            string executablePath,
+            string taskName,
+            string userName,
+            bool runAsAdmin)
+        {
+            return new[]
+            {
+                "/Create", "/TN", taskName, "/TR", BuildTaskAction(executablePath),
+                "/SC", "ONLOGON", "/RU", userName, "/IT", "/RL",
+                runAsAdmin ? "HIGHEST" : "LIMITED", "/F"
+            };
         }
 
         internal static string GetTaskName(string userSid)
@@ -188,33 +195,6 @@ namespace SmartWindowTool.Core
         {
             using WindowsIdentity identity = WindowsIdentity.GetCurrent();
             return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
-        }
-
-        private static void InstallApplicationFiles(string sourcePath, string installDirectory)
-        {
-            string sourceDirectory = Path.GetDirectoryName(sourcePath)
-                ?? throw new InvalidOperationException("无法确定程序目录。");
-            if (Path.GetFullPath(sourceDirectory).TrimEnd(Path.DirectorySeparatorChar)
-                .Equals(Path.GetFullPath(installDirectory).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            Directory.CreateDirectory(installDirectory);
-            string installedExecutable = Path.Combine(installDirectory, "SmartWindowTool.exe");
-            File.Copy(sourcePath, installedExecutable, true);
-
-            string runtimeConfigPath = Path.ChangeExtension(sourcePath, "runtimeconfig.json");
-            if (!File.Exists(runtimeConfigPath)) return;
-
-            foreach (string pattern in new[] { "*.dll", "*.json" })
-            {
-                foreach (string sourceFile in Directory.EnumerateFiles(sourceDirectory, pattern, SearchOption.TopDirectoryOnly))
-                {
-                    string destinationFile = Path.Combine(installDirectory, Path.GetFileName(sourceFile));
-                    File.Copy(sourceFile, destinationFile, true);
-                }
-            }
         }
 
         internal static bool DeleteTaskIfPresent(string taskName)
@@ -416,8 +396,8 @@ namespace SmartWindowTool.Core
             {
                 0 => AutoStartResult.Success,
                 10 => new AutoStartResult(false, "配置助手未获得管理员权限。"),
-                11 => new AutoStartResult(false, "无法确定受保护的安装目录。"),
-                12 => new AutoStartResult(false, "无法将程序安装到受保护目录。"),
+                11 => new AutoStartResult(false, "无法确定当前程序路径。"),
+                12 => new AutoStartResult(false, "配置自启动计划任务时发生未知错误。"),
                 20 => new AutoStartResult(false, "计划任务创建失败。"),
                 21 => new AutoStartResult(false, "当前用户的自启动计划任务删除失败，请确认任务计划程序服务正在运行后重试。"),
                 22 => new AutoStartResult(false, "旧版注册表启动项清理失败。"),

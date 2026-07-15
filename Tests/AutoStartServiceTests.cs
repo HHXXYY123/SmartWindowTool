@@ -67,6 +67,22 @@ public class AutoStartServiceTests
     }
 
     [Fact]
+    public void BuildCreateTaskArguments_UsesCurrentExecutablePathWithoutRedirectingIt()
+    {
+        const string executablePath = @"C:\Program Files\SmartWindowTool.exe";
+
+        string[] arguments = AutoStartService.BuildCreateTaskArguments(
+            executablePath,
+            "SmartWindowTool-AutoStart-Test",
+            @"DESKTOP\User",
+            true);
+
+        int taskActionIndex = Array.IndexOf(arguments, "/TR") + 1;
+        Assert.Equal($"\"{executablePath}\" --autostart", arguments[taskActionIndex]);
+        Assert.DoesNotContain(@"C:\Program Files\SmartWindowTool\SmartWindowTool.exe", arguments);
+    }
+
+    [Fact]
     public void GetTaskName_IsScopedToUserSid()
     {
         Assert.Equal("SmartWindowTool-AutoStart-S-1-5-21-123", AutoStartService.GetTaskName("S-1-5-21-123"));
