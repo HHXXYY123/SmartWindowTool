@@ -93,7 +93,11 @@ namespace SmartWindowTool.Models
             JsonElement root = document.RootElement;
             var result = new BlacklistEntry
             {
-                Entry = root.TryGetProperty("Entry", out JsonElement entry) ? entry.GetString() ?? string.Empty : string.Empty,
+                Entry = root.TryGetProperty("Entry", out JsonElement entry)
+                    ? entry.GetString() ?? string.Empty
+                    : root.TryGetProperty("ProcessName", out JsonElement legacyName)
+                        ? legacyName.GetString() ?? string.Empty
+                        : string.Empty,
                 IsEnabled = !root.TryGetProperty("IsEnabled", out JsonElement enabled) || enabled.GetBoolean()
             };
 

@@ -1,5 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Reflection;
 using System.Linq;
 using System.Windows;
 using SmartWindowTool.Core;
@@ -165,14 +168,20 @@ namespace SmartWindowTool
             };
         }
 
-        private System.Drawing.Icon LoadApplicationIcon()
+        private Icon LoadApplicationIcon()
         {
-            string path = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "SmartWindowTool.ico");
-            if (System.IO.File.Exists(path))
+            const string resourceName = "SmartWindowTool.Assets.SmartWindowTool.ico";
+            Stream? resourceStream = typeof(MainWindow).Assembly.GetManifestResourceStream(resourceName);
+            if (resourceStream != null)
             {
-                return new System.Drawing.Icon(path);
+                using (resourceStream)
+                using (var sourceIcon = new Icon(resourceStream))
+                {
+                    return (Icon)sourceIcon.Clone();
+                }
             }
-            return System.Drawing.SystemIcons.Application;
+
+            return SystemIcons.Application;
         }
 
         private void ShowWpfTrayMenu()

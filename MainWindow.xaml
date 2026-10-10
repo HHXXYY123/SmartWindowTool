@@ -542,6 +542,7 @@
                                         <Border Style="{StaticResource ChipStyle}">
                                             <Grid MinWidth="390">
                                                 <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
@@ -552,17 +553,18 @@
                                                                Margin="0,0,7,0"
                                                                Foreground="{StaticResource DangerBrush}" />
                                                 <TextBlock Text="{Binding Entry}"
-                                                           Grid.Column="0"
-                                                           Margin="25,0,0,0"
+                                                           Grid.Column="1"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Entry}"
                                                            FontSize="13"
                                                            Foreground="{StaticResource PrimaryTextBrush}"
                                                            VerticalAlignment="Center" />
                                                 <TextBlock Text="{Binding ModeDisplay}"
-                                                           Grid.Column="1"
+                                                           Grid.Column="2"
                                                            Margin="10,0,8,0"
                                                            Foreground="{StaticResource SecondaryTextBrush}"
                                                            VerticalAlignment="Center" />
-                                                <CheckBox Grid.Column="2"
+                                                <CheckBox Grid.Column="3"
                                                           Content="启用"
                                                           IsChecked="{Binding IsEnabled}"
                                                           VerticalAlignment="Center"
@@ -572,7 +574,7 @@
                                                            MinWidth="26"
                                                            MinHeight="26"
                                                            Margin="7,0,0,0"
-                                                           Grid.Column="3"
+                                                           Grid.Column="4"
                                                            Padding="0"
                                                            Appearance="Transparent"
                                                            Icon="{ui:SymbolIcon Symbol=Dismiss20}"

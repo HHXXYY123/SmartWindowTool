@@ -30,10 +30,9 @@
 
   <ItemGroup>
     <Resource Include="Assets\SmartWindowTool-icon.svg" />
-    <Content Include="Assets\SmartWindowTool.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
+    <EmbeddedResource Include="Assets\SmartWindowTool.ico">
+      <LogicalName>SmartWindowTool.Assets.SmartWindowTool.ico</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
