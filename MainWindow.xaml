@@ -516,7 +516,7 @@
                                             Grid.Column="0"
                                             MinHeight="40"
                                             Margin="0,0,8,0"
-                                            PlaceholderText="进程名称，例如 app.exe" />
+                                            PlaceholderText="进程名或完整路径，例如 app.exe 或 D:\Games\javaw.exe" />
                                 <ui:Button Grid.Column="1"
                                            MinHeight="40"
                                            Margin="0,0,8,0"
@@ -537,27 +537,42 @@
                             <ItemsControl ItemsSource="{Binding Settings.BlacklistProcesses}"
                                           Background="Transparent"
                                           BorderThickness="0">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Style="{StaticResource ChipStyle}">
-                                            <StackPanel Orientation="Horizontal">
+                                            <Grid MinWidth="390">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
                                                 <ui:SymbolIcon Symbol="ShieldProhibited20"
+                                                               Grid.Column="0"
                                                                Margin="0,0,7,0"
                                                                Foreground="{StaticResource DangerBrush}" />
-                                                <TextBlock Text="{Binding}"
+                                                <TextBlock Text="{Binding Entry}"
+                                                           Grid.Column="0"
+                                                           Margin="25,0,0,0"
                                                            FontSize="13"
                                                            Foreground="{StaticResource PrimaryTextBrush}"
                                                            VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding ModeDisplay}"
+                                                           Grid.Column="1"
+                                                           Margin="10,0,8,0"
+                                                           Foreground="{StaticResource SecondaryTextBrush}"
+                                                           VerticalAlignment="Center" />
+                                                <CheckBox Grid.Column="2"
+                                                          Content="启用"
+                                                          IsChecked="{Binding IsEnabled}"
+                                                          VerticalAlignment="Center"
+                                                          ToolTip="是否对该黑名单生效" />
                                                 <ui:Button Width="26"
                                                            Height="26"
                                                            MinWidth="26"
                                                            MinHeight="26"
                                                            Margin="7,0,0,0"
+                                                           Grid.Column="3"
                                                            Padding="0"
                                                            Appearance="Transparent"
                                                            Icon="{ui:SymbolIcon Symbol=Dismiss20}"
@@ -565,7 +580,7 @@
                                                            AutomationProperties.Name="移出黑名单"
                                                            Click="RemoveBlacklist_Click"
                                                            CommandParameter="{Binding}" />
-                                            </StackPanel>
+                                            </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

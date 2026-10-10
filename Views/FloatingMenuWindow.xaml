@@ -99,7 +99,7 @@
                 </StackPanel>
             </Grid>
 
-            <StackPanel Grid.Row="1">
+            <StackPanel x:Name="FunctionControlsPanel" Grid.Row="1">
                     <Border Style="{StaticResource MenuDividerStyle}" Margin="6,0,6,2" />
 
                     <TextBlock Text="尺寸" Style="{StaticResource MenuSectionStyle}" />
@@ -360,13 +360,19 @@
                               IsChecked="{Binding Settings.IgnoreTaskbar}"
                               Foreground="{DynamicResource SecondaryTextBrush}" />
 
-                    <ui:Button Content="关闭菜单"
+                    <ui:Button x:Name="CloseMenuButton"
+                               Content="关闭菜单"
                                Icon="{ui:SymbolIcon Symbol=Dismiss20}"
                                HorizontalAlignment="Stretch"
                                Margin="1,2,1,1"
                                MinHeight="30"
                                Appearance="Danger"
                                Click="CloseMenu_Click" />
+                    <TextBlock Text="仅功能黑名单：菜单操作已停用"
+                               x:Name="FunctionBlockedHint"
+                               Margin="8,5,6,3"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Visibility="Collapsed" />
             </StackPanel>
         </Grid>
     </Border>

@@ -143,7 +143,7 @@ namespace SmartWindowTool
         {
             _notifyIcon = new System.Windows.Forms.NotifyIcon();
             _notifyIcon.Text = "Smart Window Tool";
-            _notifyIcon.Icon = System.Drawing.SystemIcons.Application;
+            _notifyIcon.Icon = LoadApplicationIcon();
             _notifyIcon.Visible = true;
             
             _notifyIcon.MouseClick += (s, e) =>
@@ -163,6 +163,16 @@ namespace SmartWindowTool
             {
                 // Nothing to do if we dynamically build the WPF menu each time
             };
+        }
+
+        private System.Drawing.Icon LoadApplicationIcon()
+        {
+            string path = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "SmartWindowTool.ico");
+            if (System.IO.File.Exists(path))
+            {
+                return new System.Drawing.Icon(path);
+            }
+            return System.Drawing.SystemIcons.Application;
         }
 
         private void ShowWpfTrayMenu()
@@ -711,17 +721,23 @@ namespace SmartWindowTool
 
         private void AddBlacklist_Click(object sender, RoutedEventArgs e)
         {
-            string? processName = BlacklistInput.Text?.Trim();
+            string? processName = Models.BlacklistMatcher.NormalizeEntry(BlacklistInput.Text);
             if (!string.IsNullOrEmpty(processName))
             {
-                if (!processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                bool isPath = processName.Contains('\\') || processName.Contains('/');
+                if (!isPath && !processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 {
                     processName += ".exe";
                 }
-                
-                if (!_viewModel.Settings.BlacklistProcesses.Contains(processName))
+
+                bool alreadyExists = _viewModel.Settings.BlacklistProcesses.Any(
+                    entry => string.Equals(entry.Entry, processName, StringComparison.OrdinalIgnoreCase));
+
+                if (!alreadyExists)
                 {
-                    _viewModel.Settings.BlacklistProcesses.Add(processName);
+                    var entry = new Models.BlacklistEntry { Entry = processName };
+                    entry.PropertyChanged += (s, e) => _viewModel.Settings.Save();
+                    _viewModel.Settings.BlacklistProcesses.Add(entry);
                 }
                 BlacklistInput.Text = string.Empty;
             }
@@ -744,9 +760,9 @@ namespace SmartWindowTool
 
         private void RemoveBlacklist_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button element && element.CommandParameter is string processName)
+            if (sender is System.Windows.Controls.Button element && element.CommandParameter is Models.BlacklistEntry entry)
             {
-                _viewModel.Settings.BlacklistProcesses.Remove(processName);
+                _viewModel.Settings.BlacklistProcesses.Remove(entry);
             }
         }
 

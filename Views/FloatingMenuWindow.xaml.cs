@@ -12,7 +12,9 @@ namespace SmartWindowTool.Views
         public IntPtr TargetWindowHwnd { get; set; }
 
         private ViewModels.MainViewModel _viewModel;
-        
+
+        public bool IsFunctionOnlyBlocked { get; private set; }
+
         // State tracking
         private Dictionary<IntPtr, int> _originalHeights = new Dictionary<IntPtr, int>();
         private Dictionary<IntPtr, uint> _originalStyles = new Dictionary<IntPtr, uint>();
@@ -86,6 +88,11 @@ namespace SmartWindowTool.Views
         {
             if (TargetWindowHwnd != IntPtr.Zero)
             {
+                Win32Api.GetWindowThreadProcessId(TargetWindowHwnd, out uint processId);
+                var settingsEntry = FindBlacklistEntry(processId);
+                IsFunctionOnlyBlocked = settingsEntry?.Mode == Models.BlacklistMode.FunctionOnly;
+                SetFunctionControlsEnabled(!IsFunctionOnlyBlocked);
+
                 uint exStyle = Win32Api.GetWindowLong(TargetWindowHwnd, Win32Api.GWL_EXSTYLE);
                 bool isTopmost = (exStyle & Win32Api.WS_EX_TOPMOST) != 0;
                 PinButton.Content = isTopmost ? "取消置顶" : "置顶窗口";
@@ -111,6 +118,45 @@ namespace SmartWindowTool.Views
             }
         }
 
+        private Models.BlacklistEntry? FindBlacklistEntry(uint processId)
+        {
+            try
+            {
+                var process = Process.GetProcessById((int)processId);
+                string processName = process.ProcessName + ".exe";
+                string? processPath = null;
+                try { processPath = process.MainModule?.FileName; } catch { }
+                return Models.BlacklistMatcher.FindMatch(processName, processPath, _viewModel.Settings.BlacklistProcesses);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void SetFunctionControlsEnabled(bool enabled)
+        {
+            SetControlTreeEnabled(FunctionControlsPanel, enabled);
+            CustomSizePopup.IsEnabled = enabled;
+            MonitorPopup.IsEnabled = enabled;
+            CloseMenuButton.IsEnabled = true;
+            FunctionBlockedHint.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void SetControlTreeEnabled(DependencyObject root, bool enabled)
+        {
+            int childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < childCount; i++)
+            {
+                DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is System.Windows.Controls.Control control && !ReferenceEquals(control, CloseMenuButton))
+                {
+                    control.IsEnabled = enabled;
+                }
+                SetControlTreeEnabled(child, enabled);
+            }
+        }
+
         private void Window_Deactivated(object sender, EventArgs e)
         {
             // Now fully handled by HookService's OnAnyMouseDown to be 100% reliable across all applications
@@ -123,9 +169,13 @@ namespace SmartWindowTool.Views
 
         private void EnlargeWindow_Click(object sender, RoutedEventArgs e)
         {
-            if (TargetWindowHwnd != IntPtr.Zero)
+            if (IsFunctionOnlyBlocked)
             {
-                // Enlarge window by 10%
+                this.Hide();
+                return;
+            }
+
+            if (TargetWindowHwnd != IntPtr.Zero)
                 if (Win32Api.GetWindowRect(TargetWindowHwnd, out Win32Api.RECT rect))
                 {
                     int width = rect.Right - rect.Left;
@@ -139,12 +189,12 @@ namespace SmartWindowTool.Views
                         newWidth, newHeight, 
                         Win32Api.SWP_NOZORDER | Win32Api.SWP_SHOWWINDOW);
                 }
-            }
             this.Hide();
         }
 
         private void PinWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 uint exStyle = Win32Api.GetWindowLong(TargetWindowHwnd, Win32Api.GWL_EXSTYLE);
@@ -191,6 +241,7 @@ namespace SmartWindowTool.Views
 
         private void CustomSize_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             CustomSizePopup.IsOpen = false;
             if (sender is FrameworkElement element && element.DataContext is Models.WindowSizeItem sizeItem)
             {
@@ -211,6 +262,7 @@ namespace SmartWindowTool.Views
 
         private void ShrinkWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 // Shrink window by 10%
@@ -233,6 +285,7 @@ namespace SmartWindowTool.Views
 
         private void TransparencySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            if (IsFunctionOnlyBlocked) return;
             if (TargetWindowHwnd != IntPtr.Zero && this.IsLoaded)
             {
                 byte alpha = (byte)(e.NewValue / 100.0 * 255);
@@ -250,6 +303,7 @@ namespace SmartWindowTool.Views
 
         private void InfoWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 var titleBuilder = new StringBuilder(256);
@@ -287,6 +341,7 @@ namespace SmartWindowTool.Views
 
         private void OpenFolder_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 Win32Api.GetWindowThreadProcessId(TargetWindowHwnd, out uint processId);
@@ -308,6 +363,7 @@ namespace SmartWindowTool.Views
         }
         private void BottomWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             IntPtr target = TargetWindowHwnd;
             this.Hide();
             
@@ -324,6 +380,7 @@ namespace SmartWindowTool.Views
 
         private void Borderless_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 uint style = Win32Api.GetWindowLong(TargetWindowHwnd, Win32Api.GWL_STYLE);
@@ -351,6 +408,7 @@ namespace SmartWindowTool.Views
 
         private void FreezeWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 if (Win32Api.GetWindowRect(TargetWindowHwnd, out Win32Api.RECT rect))
@@ -387,6 +445,7 @@ namespace SmartWindowTool.Views
 
         private void ClickThrough_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 uint exStyle = Win32Api.GetWindowLong(TargetWindowHwnd, Win32Api.GWL_EXSTYLE);
@@ -398,6 +457,7 @@ namespace SmartWindowTool.Views
 
         private void RollUp_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 if (_originalHeights.TryGetValue(TargetWindowHwnd, out int originalHeight))
@@ -431,6 +491,7 @@ namespace SmartWindowTool.Views
         }
         private void CenterWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 if (Win32Api.GetWindowRect(TargetWindowHwnd, out Win32Api.RECT rect))
@@ -481,6 +542,7 @@ namespace SmartWindowTool.Views
 
         private void MoveToMonitor_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             MonitorPopup.IsOpen = false;
             if (sender is System.Windows.Controls.Button element && element.CommandParameter is int screenIndex)
             {
@@ -519,6 +581,7 @@ namespace SmartWindowTool.Views
 
         private void SnapToEdge_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 if (Win32Api.GetWindowRect(TargetWindowHwnd, out Win32Api.RECT rect))
@@ -558,6 +621,7 @@ namespace SmartWindowTool.Views
         
         private void HideWindow_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, 0, 0, 0, 0, 
@@ -584,6 +648,7 @@ namespace SmartWindowTool.Views
 
         private void MinimizeToTray_Click(object sender, RoutedEventArgs e)
         {
+            if (IsFunctionOnlyBlocked) { Hide(); return; }
             if (TargetWindowHwnd != IntPtr.Zero)
             {
                 Win32Api.SetWindowPos(TargetWindowHwnd, IntPtr.Zero, 0, 0, 0, 0, 

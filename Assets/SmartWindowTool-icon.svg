@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Smart Window Tool</title>
+  <desc id="desc">简洁窗口管理工具图标</desc>
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="#D8F1FA" stroke="#69C5E5" stroke-width="4"/>
+  <rect x="56" y="56" width="144" height="144" rx="14" fill="#0E4F6B"/>
+  <path d="M56 96h144" stroke="#D8F1FA" stroke-width="8"/>
+  <path d="M128 96v104M56 148h144" stroke="#D8F1FA" stroke-width="8"/>
+  <circle cx="76" cy="76" r="5" fill="#D8F1FA"/>
+  <circle cx="94" cy="76" r="5" fill="#D8F1FA"/>
+</svg>

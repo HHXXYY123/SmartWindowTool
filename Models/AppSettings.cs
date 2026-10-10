@@ -29,7 +29,7 @@ namespace SmartWindowTool.Models
         public HotkeyProfile HeightHotkey { get; set; } = new HotkeyProfile { Modifier1 = "Ctrl", Modifier2 = "Alt" };
 
         public ObservableCollection<WindowSizeItem> CustomWindowSizes { get; set; } = new ObservableCollection<WindowSizeItem>();
-        public ObservableCollection<string> BlacklistProcesses { get; set; } = new ObservableCollection<string>();
+        public ObservableCollection<BlacklistEntry> BlacklistProcesses { get; set; } = new ObservableCollection<BlacklistEntry>();
 
         public bool EnableAltNumpad
         {
@@ -101,6 +101,7 @@ namespace SmartWindowTool.Models
         public AppSettings()
         {
             CustomWindowSizes.CollectionChanged += (s, e) => Save();
+            BlacklistProcesses.CollectionChanged += BlacklistProcesses_CollectionChanged;
             
             // Subscribe to hotkey changes
             MenuHotkey.PropertyChanged += (s, e) => Save();
@@ -108,6 +109,24 @@ namespace SmartWindowTool.Models
             WidthHotkey.PropertyChanged += (s, e) => Save();
             HeightHotkey.PropertyChanged += (s, e) => Save();
             // EnablePositionArrowKeys is a simple bool, auto-saves via OnPropertyChanged
+        }
+
+        private void BlacklistProcesses_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (BlacklistEntry entry in e.NewItems)
+                {
+                    entry.PropertyChanged += BlacklistEntry_PropertyChanged;
+                }
+            }
+
+            Save();
+        }
+
+        private void BlacklistEntry_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            Save();
         }
 
         public void EnsureDefaultSizes()
@@ -179,9 +198,13 @@ namespace SmartWindowTool.Models
                         settings.CustomWindowSizes.CollectionChanged += (s, e) => settings.Save();
                         if (settings.BlacklistProcesses == null)
                         {
-                            settings.BlacklistProcesses = new ObservableCollection<string>();
+                            settings.BlacklistProcesses = new ObservableCollection<BlacklistEntry>();
                         }
                         settings.BlacklistProcesses.CollectionChanged += (s, e) => settings.Save();
+                        foreach (var entry in settings.BlacklistProcesses)
+                        {
+                            entry.PropertyChanged += (s, e) => settings.Save();
+                        }
                         
                         if (settings.MenuHotkey != null) settings.MenuHotkey.PropertyChanged += (s, e) => settings.Save();
                         if (settings.TransparencyHotkey != null) settings.TransparencyHotkey.PropertyChanged += (s, e) => settings.Save();

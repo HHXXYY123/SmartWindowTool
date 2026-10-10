@@ -137,22 +137,119 @@ namespace SmartWindowTool.Core
             return true;
         }
 
+        // --- 进程黑名单 ---
+
+        // MainModule 查询有成本，滚轮会高频触发，这里按 PID 做 1 秒结果缓存。
+        private uint _blacklistCachePid;
+        private BlacklistMode? _blacklistCacheMode;
+        private long _blacklistCacheTick;
+        private const long BlacklistCacheDurationMs = 1000;
+
+        /// <summary>
+        /// 判断窗口所属进程是否命中黑名单。
+        /// 条目不区分大小写，支持进程名（javaw.exe / javaw）或完整路径两种写法。
+        /// </summary>
+        internal bool IsWindowBlacklisted(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero) return false;
+            Win32Api.GetWindowThreadProcessId(hwnd, out uint processId);
+            if (processId == 0) return false;
+            return IsProcessBlacklisted(processId);
+        }
+
+        internal bool IsProcessBlacklisted(uint processId)
+        {
+            return GetProcessBlacklistMode(processId).HasValue;
+        }
+
+        internal BlacklistMode? GetProcessBlacklistMode(uint processId)
+        {
+            long now = Environment.TickCount64;
+            if (processId == _blacklistCachePid && now - _blacklistCacheTick < BlacklistCacheDurationMs)
+            {
+                return _blacklistCacheMode;
+            }
+
+            bool result = false;
+            BlacklistMode? mode = null;
+            try
+            {
+                var process = Process.GetProcessById((int)processId);
+                string processName = process.ProcessName + ".exe";
+                string? processPath = null;
+                try
+                {
+                    processPath = process.MainModule?.FileName;
+                }
+                catch
+                {
+                    // 权限不足或进程已退出：退化为仅按进程名匹配
+                }
+
+                BlacklistEntry[] entries;
+                try
+                {
+                    entries = System.Linq.Enumerable.ToArray(_settings.BlacklistProcesses);
+                }
+                catch
+                {
+                    // 列表可能正被 UI 线程修改，退化为本次不匹配
+                    entries = Array.Empty<BlacklistEntry>();
+                }
+
+                BlacklistEntry? match = BlacklistMatcher.FindMatch(processName, processPath, entries);
+                result = match != null;
+                mode = match?.Mode;
+            }
+            catch
+            {
+                result = false;
+            }
+
+            _blacklistCachePid = processId;
+            _blacklistCacheMode = mode;
+            _blacklistCacheTick = now;
+            return mode;
+        }
+
+        private BlacklistMode? GetWindowBlacklistMode(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero) return null;
+            Win32Api.GetWindowThreadProcessId(hwnd, out uint processId);
+            return processId == 0 ? null : GetProcessBlacklistMode(processId);
+        }
+
+        private bool IsCursorFunctionBlocked()
+        {
+            IntPtr target = Win32Api.GetRootWindowFromCursor();
+            if (target == IntPtr.Zero) target = Win32Api.GetForegroundWindow();
+            return GetWindowBlacklistMode(target).HasValue;
+        }
+
+        private bool IsForegroundFunctionBlocked()
+        {
+            return GetWindowBlacklistMode(Win32Api.GetForegroundWindow()).HasValue;
+        }
+
         private void GlobalHook_MouseWheelExt(object? sender, MouseEventExtArgs e)
         {
             if (_settings.EnableTransparencyHotkey && IsHotkeyMatch(_settings.TransparencyHotkey, null, true))
             {
+                if (IsCursorFunctionBlocked()) return; // 黑名单进程：忽略，且不拦截滚轮
                 int delta = e.Delta > 0 ? 10 : -10;
                 OnWindowTransparencyAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
             else if (_settings.EnableHeightHotkey && IsHotkeyMatch(_settings.HeightHotkey, null, true))
             {
+                if (IsCursorFunctionBlocked()) return; // 黑名单进程：忽略，且不拦截滚轮
                 int delta = e.Delta > 0 ? 30 : -30;
                 OnWindowHeightAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
             }
             else if (_settings.EnableWidthHotkey && IsHotkeyMatch(_settings.WidthHotkey, null, true))
             {
+                if (IsCursorFunctionBlocked()) return; // 黑名单进程：忽略，且不拦截滚轮
                 int delta = e.Delta > 0 ? 30 : -30;
                 OnWindowWidthAdjustRequested?.Invoke(this, delta);
                 e.Handled = true;
@@ -165,6 +262,8 @@ namespace SmartWindowTool.Core
             {
                 if (e.KeyCode >= Keys.NumPad1 && e.KeyCode <= Keys.NumPad9)
                 {
+                    if (IsForegroundFunctionBlocked()) return; // 功能黑名单：忽略，且不拦截按键
+
                     WindowAlignment alignment = (WindowAlignment)(e.KeyCode - Keys.NumPad0);
                     OnWindowAlignmentRequested?.Invoke(this, alignment);
                     e.Handled = true;
@@ -174,6 +273,8 @@ namespace SmartWindowTool.Core
             {
                 if (e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9)
                 {
+                    if (IsCursorFunctionBlocked()) return; // 黑名单进程：忽略，且不拦截按键
+
                     int level = e.KeyCode - Keys.NumPad0;
                     int transparency = level == 0 ? 100 : (100 - (level * 10));
                     OnWindowTransparencyRequested?.Invoke(this, transparency);
@@ -192,6 +293,8 @@ namespace SmartWindowTool.Core
                 }
                 if (dx != 0 || dy != 0)
                 {
+                    if (IsCursorFunctionBlocked()) return; // 黑名单进程：忽略，且不拦截按键
+
                     OnWindowPositionMoveRequested?.Invoke(this, (dx, dy));
                     e.Handled = true;
                 }
@@ -203,22 +306,9 @@ namespace SmartWindowTool.Core
             if (IsHotkeyMatch(_settings.MenuHotkey, e.Button))
             {
                 IntPtr target = Win32Api.GetRootWindowFromCursor();
-                if (target != IntPtr.Zero)
+                if (GetWindowBlacklistMode(target) == BlacklistMode.Full)
                 {
-                    Win32Api.GetWindowThreadProcessId(target, out uint processId);
-                    try
-                    {
-                        var process = System.Diagnostics.Process.GetProcessById((int)processId);
-                        string procName = process.ProcessName + ".exe";
-                        foreach (var blacklisted in _settings.BlacklistProcesses)
-                        {
-                            if (procName.Equals(blacklisted, StringComparison.OrdinalIgnoreCase))
-                            {
-                                return; // Ignore blacklisted
-                            }
-                        }
-                    }
-                    catch { }
+                    return; // 黑名单进程：忽略，且不拦截右键
                 }
 
                 e.Handled = true;
