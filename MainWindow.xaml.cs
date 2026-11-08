@@ -57,7 +57,47 @@ namespace SmartWindowTool
             _hookService.OnAnyMouseDown += OnAnyMouseDown;
             _hookService.OnWindowPositionMoveRequested += OnWindowPositionMoveRequested;
             _hookService.Start();
-            
+
+            // 计划任务默认以「低于正常」优先级（7）启动进程，CPU 紧张时菜单呼出会抢不到时间片；
+            // 提升到正常优先级。
+            try
+            {
+                using var current = System.Diagnostics.Process.GetCurrentProcess();
+                if (current.PriorityClass != System.Diagnostics.ProcessPriorityClass.Normal)
+                {
+                    current.PriorityClass = System.Diagnostics.ProcessPriorityClass.Normal;
+                }
+            }
+            catch { }
+
+            // 启动后预热 + 周期保活：
+            // 1) 首次 2 秒后预热（开机自启后第一次呼出不卡）；
+            // 2) 之后每 45 秒保活一次，防止闲置后工作集被换出；
+            // 3) 同时重装全局钩子自愈（内存紧张时低层钩子可能被系统静默移除，热键会永久失效）。
+            var keepAliveTimer = new System.Windows.Threading.DispatcherTimer(
+                System.Windows.Threading.DispatcherPriority.Background);
+            keepAliveTimer.Interval = TimeSpan.FromSeconds(2);
+            keepAliveTimer.Tick += (s, args) =>
+            {
+                keepAliveTimer.Interval = TimeSpan.FromSeconds(45);
+                Core.MenuPerf.Trace("TICK begin");
+                // 注意：钩子必须在带消息循环的 UI 线程上安装（线程池线程装的钩子永远收不到回调）
+                try { _hookService.Restart(); } catch { }
+                Core.MenuPerf.Trace("HOOK restarted");
+                _floatingMenu.KeepWarm();
+                try
+                {
+                    // 预热定位路径（菜单紧贴光标并夹取到屏幕内的计算）
+                    var helper = new System.Windows.Interop.WindowInteropHelper(_floatingMenu);
+                    helper.EnsureHandle();
+                    var c = System.Windows.Forms.Cursor.Position;
+                    _ = GetFloatingMenuPosition(helper.Handle, c.X, c.Y);
+                }
+                catch { }
+                Core.MenuPerf.Trace("TICK end");
+            };
+            keepAliveTimer.Start();
+
             this.Closing += MainWindow_Closing;
             
             InitializeTrayIcon();
@@ -350,7 +390,8 @@ namespace SmartWindowTool
 
         private void OnAnyMouseDown(object? sender, Gma.System.MouseKeyHook.MouseEventExtArgs e)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            // BeginInvoke：钩子回调立即返回（同步等待会拉长回调，可能触发系统钩子超时移除）
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (_floatingMenu.IsVisible)
                 {
@@ -377,7 +418,7 @@ namespace SmartWindowTool
                         }
                     }
                 }
-            });
+            }));
         }
 
         private System.Drawing.Rectangle GetEffectiveArea(System.Windows.Forms.Screen screen)
@@ -605,9 +646,16 @@ namespace SmartWindowTool
 
         private void OnContextMenuRequested(object? sender, HookEventArgs e)
         {
-            // Run on UI thread
-            Application.Current.Dispatcher.Invoke(() =>
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            long markDispatch = 0, markState = 0, markPos = 0, markDone = 0;
+            uint targetPid = 0;
+            Core.MenuPerf.Trace("INVOKE");
+
+            // BeginInvoke：钩子回调立即返回，避免同步等待 UI 线程
+            // （回调超时会被系统按 LowLevelHooksTimeout 静默移除钩子）。
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
+                markDispatch = sw.ElapsedMilliseconds;
                 // Ensure the window handle is created
                 var helper = new System.Windows.Interop.WindowInteropHelper(_floatingMenu);
                 helper.EnsureHandle();
@@ -618,8 +666,10 @@ namespace SmartWindowTool
                 
                 if (rootHwnd != IntPtr.Zero && rootHwnd != menuHwnd)
                 {
+                    Win32Api.GetWindowThreadProcessId(rootHwnd, out targetPid);
                     _floatingMenu.TargetWindowHwnd = rootHwnd;
                     _floatingMenu.UpdateState();
+                    markState = sw.ElapsedMilliseconds;
 
                     _floatingMenu.Hide();
                     _floatingMenu.UpdateLayout();
@@ -630,6 +680,7 @@ namespace SmartWindowTool
                     Win32Api.SetWindowPos(menuHwnd, new IntPtr(-1),
                         initialPosition.Left, initialPosition.Top, 0, 0,
                         Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE);
+                    markPos = sw.ElapsedMilliseconds;
 
                     _floatingMenu.Show();
                     _floatingMenu.UpdateLayout();
@@ -639,12 +690,51 @@ namespace SmartWindowTool
                         finalPosition.Left, finalPosition.Top, 0, 0,
                         Win32Api.SWP_NOSIZE | Win32Api.SWP_NOACTIVATE | Win32Api.SWP_SHOWWINDOW);
                     Win32Api.SetForegroundWindow(menuHwnd);
+                    markDone = sw.ElapsedMilliseconds;
                 }
                 else
                 {
                     Console.WriteLine($"Invalid HWND: {rootHwnd} or is menu itself");
                 }
-            });
+
+                Core.MenuPerf.Trace($"SHOWN total={markDone} dispatch={markDispatch} state={markState - markDispatch} pos={markPos - markState} show={markDone - markPos}");
+                // 慢呼出记录（≥80ms 才写，正常呼出零开销）：dispatch=钩子→UI线程，state=状态刷新，pos=定位，show=显示渲染
+                if (markDone >= 80)
+                {
+                    WriteMenuPerfLog(markDone, markDispatch, markState - markDispatch,
+                        markPos - markState, markDone - markPos, targetPid);
+                }
+            }));
+        }
+
+        private static void WriteMenuPerfLog(long total, long dispatch, long state, long pos, long show, uint targetPid)
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(
+                    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
+                    "SmartWindowTool");
+                System.IO.Directory.CreateDirectory(dir);
+                string path = System.IO.Path.Combine(dir, "perf.log");
+                var file = new System.IO.FileInfo(path);
+                if (file.Exists && file.Length > 256 * 1024)
+                {
+                    System.IO.File.Delete(path);
+                }
+                string targetName = "unknown";
+                try
+                {
+                    using var proc = System.Diagnostics.Process.GetProcessById((int)targetPid);
+                    targetName = proc.ProcessName;
+                }
+                catch { }
+                long ws = System.Environment.WorkingSet;
+                System.IO.File.AppendAllText(path,
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} total={total}ms dispatch={dispatch}ms " +
+                    $"state={state}ms pos={pos}ms show={show}ms ws={ws / 1024}KB target={targetName}" +
+                    System.Environment.NewLine);
+            }
+            catch { }
         }
 
         private (int Left, int Top) GetFloatingMenuPosition(IntPtr menuHwnd, int mouseX, int mouseY)

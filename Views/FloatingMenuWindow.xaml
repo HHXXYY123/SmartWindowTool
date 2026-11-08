@@ -123,8 +123,7 @@
                     <ui:Button x:Name="CustomSizeButton"
                                Style="{StaticResource MenuButtonStyle}"
                                HorizontalContentAlignment="Stretch"
-                               MouseEnter="CustomSizeButton_MouseEnter"
-                               MouseLeave="CustomSizeButton_MouseLeave">
+                               MouseEnter="CustomSizeButton_MouseEnter">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -141,8 +140,7 @@
                            Placement="Right"
                            StaysOpen="True"
                            AllowsTransparency="True"
-                           PopupAnimation="Fade"
-                           MouseLeave="CustomSizePopup_MouseLeave">
+                           PopupAnimation="Fade">
                         <Border Width="192"
                                 Background="{DynamicResource MenuBackgroundBrush}"
                                 BorderBrush="{DynamicResource MenuBorderBrush}"
@@ -207,8 +205,7 @@
                     <ui:Button x:Name="MonitorButton"
                                Style="{StaticResource MenuButtonStyle}"
                                HorizontalContentAlignment="Stretch"
-                               MouseEnter="MonitorButton_MouseEnter"
-                               MouseLeave="MonitorButton_MouseLeave">
+                               MouseEnter="MonitorButton_MouseEnter">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -225,8 +222,7 @@
                            Placement="Right"
                            StaysOpen="True"
                            AllowsTransparency="True"
-                           PopupAnimation="Fade"
-                           MouseLeave="MonitorPopup_MouseLeave">
+                           PopupAnimation="Fade">
                         <Border Width="192"
                                 Background="{DynamicResource MenuBackgroundBrush}"
                                 BorderBrush="{DynamicResource MenuBorderBrush}"

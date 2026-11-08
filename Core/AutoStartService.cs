@@ -139,6 +139,10 @@ namespace SmartWindowTool.Core
                     runAsAdmin));
                 if (createResult.ExitCode != 0) return 20;
 
+                // schtasks 无法设置优先级/电池策略，创建后经 COM 补齐：
+                // 默认优先级 7（低于正常）会让程序长期抢不到 CPU；电池模式下也要允许启动。
+                TryTuneTaskSettings(GetTaskName(userSid));
+
                 // Only remove working legacy mechanisms after the replacement task exists.
                 DeleteTaskIfPresent(LegacyTaskName);
                 return 0;
@@ -224,6 +228,45 @@ namespace SmartWindowTool.Core
             }
             finally
             {
+                ReleaseComObject(folder);
+                ReleaseComObject(service);
+            }
+        }
+
+        /// <summary>
+        /// 调整任务设置（尽力而为，失败不影响自启动本身）：
+        /// 优先级 5（≈正常；schtasks 默认 7=低于正常，进程会长期处于低优先级），
+        /// 并允许电池模式下启动。schtasks 不支持这些设置，须创建后经 COM 修改并重新注册。
+        /// </summary>
+        internal static void TryTuneTaskSettings(string taskName)
+        {
+            object? service = null;
+            object? folder = null;
+            object? task = null;
+            try
+            {
+                Type? serviceType = Type.GetTypeFromProgID("Schedule.Service");
+                if (serviceType == null) return;
+                service = Activator.CreateInstance(serviceType);
+                if (service == null) return;
+                ((dynamic)service).Connect();
+                folder = ((dynamic)service).GetFolder("\\");
+                task = ((dynamic)folder).GetTask(taskName);
+                dynamic definition = ((dynamic)task).Definition;
+                definition.Settings.Priority = 5;
+                definition.Settings.DisallowStartIfOnBatteries = false;
+                definition.Settings.StopIfGoingOnBatteries = false;
+                // 显式传 flags/logonType（2 参调用会因缺少登录类型报错）
+                ((dynamic)folder).RegisterTaskDefinition(taskName, definition, 6,
+                    Environment.UserDomainName + "\\" + Environment.UserName, null, 3, null);
+            }
+            catch
+            {
+                // 尽力而为
+            }
+            finally
+            {
+                ReleaseComObject(task);
                 ReleaseComObject(folder);
                 ReleaseComObject(service);
             }

@@ -303,7 +303,9 @@ namespace SmartWindowTool.Core
 
         private void GlobalHook_MouseDownExt(object? sender, MouseEventExtArgs e)
         {
-            if (IsHotkeyMatch(_settings.MenuHotkey, e.Button))
+            bool matched = IsHotkeyMatch(_settings.MenuHotkey, e.Button);
+            Core.MenuPerf.Trace($"MOUSEDOWN button={e.Button} match={matched}");
+            if (matched)
             {
                 IntPtr target = Win32Api.GetRootWindowFromCursor();
                 if (GetWindowBlacklistMode(target) == BlacklistMode.Full)
@@ -331,6 +333,16 @@ namespace SmartWindowTool.Core
                 _globalHook.Dispose();
                 _globalHook = null;
             }
+        }
+
+        /// <summary>
+        /// 重装全局钩子。内存紧张时低层钩子回调可能超过系统超时（LowLevelHooksTimeout），
+        /// 被 Windows 静默移除后热键永久失效；定期重装可自愈。
+        /// </summary>
+        public void Restart()
+        {
+            Stop();
+            Start();
         }
 
         public void Dispose()
