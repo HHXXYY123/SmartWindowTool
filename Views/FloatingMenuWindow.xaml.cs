@@ -211,8 +211,12 @@ namespace SmartWindowTool.Views
         }
 
         /// <summary>
-        /// 预热：提前完成 JIT、布局与渲染（含两个悬停弹窗），保证首次呼出
-        /// （开机后、久未使用后）不卡。窗口在屏幕外显隐，不产生任何闪现。
+        /// 预热：提前完成 JIT 与布局（含两个悬停弹窗的内容），保证首次呼出
+        /// （开机后、久未使用后）不卡。主窗口在屏幕外显隐。
+        /// 注意：预热里绝不能打开弹窗本身——弹窗是独立置顶窗口，位置由触发按钮
+        /// 推导，主窗口在屏幕外时 WPF 会把弹窗放进可见屏幕左上角（0,0），
+        /// 每次保活都会在用户屏幕上闪现二级菜单（v1.4.2 引入的缺陷）。
+        /// 这里只做弹窗内容的测量/布局（模板、列表项、JIT），不创建弹窗窗口。
         /// </summary>
         public void WarmUp()
         {
@@ -232,16 +236,22 @@ namespace SmartWindowTool.Views
                     this.Show();
                     this.Hide();
                 }
-                CustomSizePopup.IsOpen = true;
-                MonitorPopup.IsOpen = true;
-                UpdateLayout();
-                CustomSizePopup.IsOpen = false;
-                MonitorPopup.IsOpen = false;
+                WarmPopupContent(CustomSizePopup);
+                WarmPopupContent(MonitorPopup);
             }
             catch
             {
                 // 预热失败不影响正常使用
             }
+        }
+
+        /// <summary>预热弹窗内容（模板、列表项容器、布局/JIT），不打开弹窗窗口，不产生任何可见界面。</summary>
+        private static void WarmPopupContent(System.Windows.Controls.Primitives.Popup popup)
+        {
+            if (popup.Child is not FrameworkElement child) return;
+            child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            child.Arrange(new Rect(child.DesiredSize));
+            child.UpdateLayout();
         }
 
         /// <summary>保活：菜单未显示时定期预热一次，保持关键页面驻留内存。</summary>
